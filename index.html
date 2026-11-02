@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>Rapportino di Cantiere</title>
+  <meta name="description" content="Rapportino di cantiere digitale (Mod. 22.03): il caposquadra lo compila e lo invia, il responsabile lo completa e lo scrive su Excel">
+  <meta name="theme-color" content="#1f3a5f">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icons/icon-192.png">
+  <link rel="apple-touch-icon" href="icons/icon-192.png">
+  <link rel="stylesheet" href="style.css">
+  <script src="version.js"></script>
+  <script src="libs/jszip.min.js"></script>
+  <script src="excel.js"></script>
+  <script src="cartella.js"></script>
+  <script type="module" src="app.js"></script>
+</head>
+<body>
+
+  <!-- ===================== AVVIO ===================== -->
+  <section id="scrAvvio" class="schermo centro">
+    <div class="caricamento">Avvio in corso…</div>
+  </section>
+
+  <!-- ===================== CONFIGURAZIONE MANCANTE ===================== -->
+  <section id="scrConfig" class="schermo centro" hidden>
+    <div class="scheda stretta">
+      <h1>Configurazione mancante</h1>
+      <p>L'app non è ancora collegata al progetto Firebase. Va compilato il file <b>firebase-config.js</b>
+        con i dati del progetto (vedi la guida <b>GUIDA_FIREBASE.md</b>).</p>
+    </div>
+  </section>
+
+  <!-- ===================== ACCESSO ===================== -->
+  <section id="scrLogin" class="schermo centro" hidden>
+    <form id="formLogin" class="scheda stretta" autocomplete="on">
+      <div class="logo-titolo">
+        <img src="icons/icon-192.png" alt="" width="56" height="56">
+        <div>
+          <h1>Rapportino di Cantiere</h1>
+          <div class="sottotitolo">Mod. 22.03 digitale</div>
+        </div>
+      </div>
+      <label class="campo">
+        <span>Codice utente</span>
+        <input id="loginCodice" name="username" autocomplete="username" autocapitalize="none" spellcheck="false" required>
+      </label>
+      <label class="campo">
+        <span>Password</span>
+        <input id="loginPassword" name="password" type="password" autocomplete="current-password" required>
+      </label>
+      <button class="btn primario grande" type="submit" id="btnLogin">Entra</button>
+      <p class="errore" id="loginErrore" hidden></p>
+      <button type="button" class="link" id="btnApriSetup">Prima configurazione (solo la prima volta)</button>
+    </form>
+
+    <form id="formSetup" class="scheda stretta" hidden>
+      <h1>Prima configurazione</h1>
+      <p>Crea il primo <b>responsabile</b>. Si fa una volta sola: dopo, gli altri utenti li crea il responsabile dall'app.</p>
+      <label class="campo"><span>Nome e cognome</span><input id="setupNome" required></label>
+      <label class="campo"><span>Codice utente (es. ufficio)</span><input id="setupCodice" autocapitalize="none" spellcheck="false" required></label>
+      <label class="campo"><span>Password (almeno 6 caratteri)</span><input id="setupPassword" type="password" minlength="6" autocomplete="new-password" required></label>
+      <button class="btn primario grande" type="submit" id="btnSetup">Crea responsabile</button>
+      <p class="errore" id="setupErrore" hidden></p>
+      <button type="button" class="link" id="btnChiudiSetup">Torna all'accesso</button>
+    </form>
+  </section>
+
+  <!-- ===================== UTENTE NON ABILITATO ===================== -->
+  <section id="scrNonAbilitato" class="schermo centro" hidden>
+    <div class="scheda stretta">
+      <h1>Utente non abilitato</h1>
+      <p id="nonAbilitatoTesto">Questo utente non è abilitato a usare il rapportino. Rivolgiti all'ufficio.</p>
+      <button class="btn" id="btnEsciNonAbilitato">Esci</button>
+    </div>
+  </section>
+
+  <!-- ===================== APP ===================== -->
+  <section id="scrApp" class="schermo" hidden>
+    <header class="barra">
+      <div class="barra-titolo">
+        <img src="icons/icon-192.png" alt="" width="32" height="32">
+        <div>
+          <div class="barra-nome">Rapportino di Cantiere</div>
+          <div class="barra-utente" id="barraUtente"></div>
+        </div>
+      </div>
+      <nav class="schede" id="menuResponsabile" hidden>
+        <button class="scheda-btn" data-vista="arrivati">Arrivati <span class="conta" id="contaArrivati">0</span></button>
+        <button class="scheda-btn" data-vista="convalidati">Convalidati</button>
+        <button class="scheda-btn" data-vista="compila">Compila</button>
+        <button class="scheda-btn" data-vista="gestione">Elenchi e utenti</button>
+      </nav>
+      <button class="btn piccolo" id="btnEsci">Esci</button>
+    </header>
+
+    <div class="avviso" id="avvisoCoda" hidden></div>
+    <div class="avviso" id="avvisoCartella" hidden>
+      <span id="avvisoCartellaTesto"></span>
+      <button class="btn piccolo primario" id="btnCartella">Collega cartella Excel</button>
+    </div>
+
+    <main class="contenuto">
+
+      <!-- ========== COMPILA (pagina 1 del modulo) ========== -->
+      <div class="vista" id="vistaCompila" hidden>
+        <form id="formRapportino" class="foglio" novalidate>
+          <div class="foglio-testata">
+            <div class="foglio-titolo">RAPPORTO DI CANTIERE</div>
+            <div class="foglio-mod">Mod. 22.03 · Pagina 1 di 2</div>
+          </div>
+
+          <p class="errore" id="erroreElenchi" hidden></p>
+
+          <div class="griglia-2">
+            <label class="campo">
+              <span>Commessa</span>
+              <select id="rCommessa" required></select>
+            </label>
+            <label class="campo">
+              <span>Data</span>
+              <input id="rData" type="date" required>
+            </label>
+          </div>
+          <label class="campo">
+            <span>Localizzazione del sito</span>
+            <input id="rLocalita" autocomplete="off">
+          </label>
+          <div class="griglia-2">
+            <label class="campo">
+              <span>Caposquadra</span>
+              <input id="rCaposquadra" readonly tabindex="-1">
+            </label>
+            <label class="campo">
+              <span>Responsabile di commessa</span>
+              <input id="rResponsabile" autocomplete="off">
+            </label>
+          </div>
+
+          <div class="sezione-titolo">
+            <span>Operai presenti <b id="contaPresenti">0</b></span>
+            <input id="cercaOperaio" class="cerca" type="search" placeholder="Cerca nome…" autocomplete="off">
+          </div>
+          <div class="orari-tutti" id="orariTutti" hidden>
+            <div class="orari-tutti-titolo">Stessi orari per tutti i presenti</div>
+            <div class="orari">
+              <label><span>Partenza deposito</span><input type="time" data-tutti="partenza"></label>
+              <label><span>Dalle</span><input type="time" data-tutti="dalle"></label>
+              <label><span>Alle</span><input type="time" data-tutti="alle"></label>
+              <label><span>Rientro deposito</span><input type="time" data-tutti="rientro"></label>
+            </div>
+            <button type="button" class="btn piccolo" id="btnApplicaTutti">Applica a tutti i presenti</button>
+          </div>
+          <div class="lista-operai" id="listaOperai"></div>
+
+          <div class="griglia-2">
+            <label class="campo">
+              <span>Automezzi utilizzati</span>
+              <textarea id="rAutomezzi" rows="2"></textarea>
+            </label>
+            <div class="campo">
+              <span>Orario di pausa mensa</span>
+              <div class="orari due">
+                <label><span>Dalle</span><input id="rMensaDalle" type="time"></label>
+                <label><span>Alle</span><input id="rMensaAlle" type="time"></label>
+              </div>
+            </div>
+          </div>
+          <label class="campo">
+            <span>Lavorazioni eseguite</span>
+            <textarea id="rLavorazioni" rows="3"></textarea>
+          </label>
+          <label class="campo">
+            <span>Altre notizie</span>
+            <textarea id="rNotizie" rows="2"></textarea>
+          </label>
+          <label class="campo">
+            <span>Controlli effettuati</span>
+            <textarea id="rControlli" rows="2"></textarea>
+          </label>
+
+          <div class="firma-nota">Firma caposquadra: vale l'accesso con il tuo codice. All'invio vengono registrati il tuo nome, la data e l'ora.</div>
+
+          <div class="azioni">
+            <button type="button" class="btn" id="btnSvuota">Svuota</button>
+            <button type="submit" class="btn primario grande" id="btnInvia">Invia al responsabile</button>
+          </div>
+        </form>
+      </div>
+
+      <!-- ========== INVIATO ========== -->
+      <div class="vista" id="vistaInviato" hidden>
+        <div class="scheda stretta centro-testo">
+          <div class="spunta-grande">✓</div>
+          <h1 id="inviatoTitolo">Rapportino inviato</h1>
+          <p id="inviatoTesto"></p>
+          <button class="btn primario grande" id="btnNuovo">Nuovo rapportino</button>
+        </div>
+      </div>
+
+      <!-- ========== ARRIVATI ========== -->
+      <div class="vista" id="vistaArrivati" hidden>
+        <h2>Rapportini arrivati</h2>
+        <p class="aiuto">Rapportini inviati dai capisquadra e non ancora convalidati. Aprine uno per scrivere le ore.</p>
+        <div id="listaArrivati" class="elenco"></div>
+      </div>
+
+      <!-- ========== CONVALIDATI ========== -->
+      <div class="vista" id="vistaConvalidati" hidden>
+        <h2>Rapportini convalidati</h2>
+        <label class="campo in-linea">
+          <span>Mese</span>
+          <input id="meseConvalidati" type="month">
+        </label>
+        <div id="listaConvalidati" class="elenco"></div>
+      </div>
+
+      <!-- ========== DETTAGLIO (pagina 2 del modulo) ========== -->
+      <div class="vista" id="vistaDettaglio" hidden>
+        <button class="link" id="btnTornaElenco">← Torna all'elenco</button>
+        <div id="dettaglioFronte" class="foglio"></div>
+        <div class="foglio">
+          <div class="foglio-testata">
+            <div class="foglio-titolo">ORE · TURNI DI LAVORO</div>
+            <div class="foglio-mod">Mod. 22.03 · Pagina 2 di 2</div>
+          </div>
+          <p class="aiuto">Come sul retro del modulo: ogni blocco vale per gli operai spuntati. Se tutti hanno fatto le stesse ore basta un blocco.</p>
+          <div id="blocchi"></div>
+          <button class="btn" id="btnAggiungiBlocco">+ Aggiungi blocco</button>
+          <div class="riepilogo" id="riepilogoOre"></div>
+          <div class="azioni">
+            <button class="btn pericolo" id="btnElimina">Elimina rapportino</button>
+            <button class="btn" id="btnSalvaOre">Salva senza convalidare</button>
+            <button class="btn primario grande" id="btnConvalida">Convalida e scrivi su Excel</button>
+          </div>
+          <p class="aiuto" id="infoFileExcel"></p>
+        </div>
+      </div>
+
+      <!-- ========== GESTIONE ========== -->
+      <div class="vista" id="vistaGestione" hidden>
+        <h2>Elenchi di operai e commesse</h2>
+        <div class="scheda">
+          <p>I telefoni dei capisquadra mostrano gli operai e le commesse presi dal file <b>Master_Operai</b>.
+            Quando cambiano nel file Excel, premi qui per aggiornarli.</p>
+          <p id="infoElenchi" class="aiuto"></p>
+          <button class="btn primario" id="btnAggiornaElenchi">Aggiorna elenchi dal file Excel</button>
+        </div>
+
+        <h2>Utenti</h2>
+        <div class="scheda">
+          <div id="listaUtenti" class="elenco"></div>
+          <form id="formUtente" class="nuovo-utente">
+            <h3>Nuovo utente</h3>
+            <div class="griglia-4">
+              <label class="campo"><span>Nome e cognome</span><input id="nuNome" required></label>
+              <label class="campo"><span>Codice utente</span><input id="nuCodice" autocapitalize="none" spellcheck="false" required></label>
+              <label class="campo"><span>Password (min. 6)</span><input id="nuPassword" minlength="6" required autocomplete="off"></label>
+              <label class="campo"><span>Ruolo</span>
+                <select id="nuRuolo">
+                  <option value="caposquadra">Caposquadra</option>
+                  <option value="responsabile">Responsabile</option>
+                </select>
+              </label>
+            </div>
+            <button class="btn primario" type="submit" id="btnCreaUtente">Crea utente</button>
+            <p class="aiuto">Comunica tu al caposquadra codice e password. Per cambiare password: disattiva l'utente e creane uno nuovo.</p>
+          </form>
+        </div>
+
+        <h2>Cartella dei file Excel</h2>
+        <div class="scheda">
+          <p id="infoCartella" class="aiuto"></p>
+          <button class="btn" id="btnCambiaCartella">Cambia cartella</button>
+        </div>
+        <p class="versione" id="versioneApp"></p>
+      </div>
+
+    </main>
+  </section>
+
+  <!-- ===================== FINESTRE ===================== -->
+  <div class="finestra" id="finestra" hidden>
+    <div class="finestra-box">
+      <h2 id="finestraTitolo"></h2>
+      <div id="finestraCorpo"></div>
+      <div class="azioni" id="finestraBottoni"></div>
+    </div>
+  </div>
+
+  <div id="avvisi" class="avvisi"></div>
+</body>
+</html>
