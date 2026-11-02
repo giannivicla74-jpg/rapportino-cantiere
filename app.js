@@ -86,29 +86,50 @@ function messaggioErrore(err) {
 }
 
 // ---------------------------------------------------------------- avvio
-// Intestazione come sul modulo cartaceo (pagina 1 completa, pagina 2 solo la riga di identificazione)
-function testataModulo(pagina) {
+// Intestazione come sul modulo cartaceo (pagina 1 completa, pagina 2 solo la riga di identificazione).
+// I testi e il logo si cambiano in "Elenchi e utenti > Intestazione del modulo"; questi sono i valori di partenza.
+const INTESTAZIONE_BASE = {
+  sedeLegale: 'Sede legale: Viale Michelangelo n. 33 – 80127 Napoli (NA)',
+  sedeOperativa: 'Sede operativa: Strada Consortile SNC - 81032 Carinaro (CE)',
+  telefono: 'Tel. e Fax 081/502.97.30',
+  sito: 'www.vicla.it',
+  titolo: 'MODELLO DEL SISTEMA DI GESTIONE INTEGRATO QUALITA’, AMBIENTE E SICUREZZA',
+  sottotitolo: 'RAPPORTO DI CANTIERE',
+  identificazione: 'Mod. 22.03',
+  revisione: '03',
+  dataRevisione: '08/01/2016',
+  norma1: 'UNI EN ISO 9001:2015',
+  norma2: 'UNI EN ISO 14001:2015',
+  norma3: 'BS OHSAS 18001:2007'
+};
+const LOGO_BASE = 'icons/logo-vicla.png';
+let intestazione = { ...INTESTAZIONE_BASE, logo: '' };
+
+function testataModulo(pagina, t = intestazione) {
   const griglia = `<div class="t-griglia">
-      <div>Identificazione: Mod. 22.03</div><div>Revisione: 03</div><div>Data: 08/01/2016</div><div>Pagina ${pagina} di 2</div>
-      <div>Rif. Norme</div><div>UNI EN ISO 9001:2015</div><div>UNI EN ISO 14001:2015</div><div>BS OHSAS 18001:2007</div>
+      <div>Identificazione: ${esc(t.identificazione)}</div><div>Revisione: ${esc(t.revisione)}</div><div>Data: ${esc(t.dataRevisione)}</div><div>Pagina ${pagina} di 2</div>
+      <div>Rif. Norme</div><div>${esc(t.norma1)}</div><div>${esc(t.norma2)}</div><div>${esc(t.norma3)}</div>
     </div>`;
   if (pagina === 2) return `<div class="testata">${griglia}</div>`;
+  // il logo è un'immagine caricata dall'ufficio (data:image/...) oppure quello originale dell'app
+  const logo = /^data:image\/(png|jpeg|webp);base64,/.test(t.logo || '') ? t.logo : LOGO_BASE;
   return `<div class="testata">
     <div class="t-alto">
-      <div class="t-logo"><img src="icons/logo-vicla.png" alt="Vi.Cla. Future"></div>
+      <div class="t-logo"><img src="${logo}" alt="Logo"></div>
       <div class="t-sede">
-        <div>Sede legale: Viale Michelangelo n. 33 – 80127 Napoli (NA)</div>
-        <div>Sede operativa: Strada Consortile SNC - 81032 Carinaro (CE)</div>
-        <div>Tel. e Fax 081/502.97.30</div>
-        <div>www.vicla.it</div>
+        ${[t.sedeLegale, t.sedeOperativa, t.telefono, t.sito].filter(Boolean).map(r => `<div>${esc(r)}</div>`).join('')}
       </div>
     </div>
-    <div class="t-titolo">MODELLO DEL SISTEMA DI GESTIONE INTEGRATO QUALITA’, AMBIENTE E SICUREZZA</div>
-    <div class="t-sotto">RAPPORTO DI CANTIERE</div>
+    <div class="t-titolo">${esc(t.titolo)}</div>
+    <div class="t-sotto">${esc(t.sottotitolo)}</div>
     ${griglia}
   </div>`;
 }
-document.querySelectorAll('.testata-pos').forEach(el => { el.outerHTML = testataModulo(Number(el.dataset.pagina)); });
+// Le intestazioni del modulo in compilazione e della pagina 2 seguono sempre l'intestazione attuale
+function aggiornaTestate() {
+  document.querySelectorAll('.testata-pos').forEach(el => { el.innerHTML = testataModulo(Number(el.dataset.pagina)); });
+}
+aggiornaTestate();
 $('versioneApp').textContent = `Versione ${self.APP_VERSION} del ${self.APP_VERSION_DATE} · Novità`;
 $('versioneApp').onclick = () => finestra('Novità delle versioni', (self.APP_STORICO || []).map(v => `
   <h3>Versione ${esc(v.versione)} <span class="aiuto">del ${esc(v.data)}</span></h3>
@@ -301,6 +322,13 @@ function avviaCompilazione() {
     disegnaGestioneMezzi();
   }, () => {});
   stato.annulla.push(offM);
+  // intestazione del modulo (testi e logo): la decide l'ufficio
+  const offI = onSnapshot(doc(db, 'elenchi', 'intestazione'), snap => {
+    intestazione = { ...INTESTAZIONE_BASE, logo: '', ...(snap.exists() ? snap.data() : {}) };
+    aggiornaTestate();
+    disegnaGestioneIntestazione();
+  }, () => {});
+  stato.annulla.push(offI);
   controllaCoda();
 }
 
@@ -484,6 +512,8 @@ $('formRapportino').addEventListener('submit', async e => {
     caposquadraNome: stato.utente.nome,
     operai,
     automezzi: stato.automezzi.filter(m => stato.mezziScelti.has(m)), // nell'ordine dell'elenco
+    // testi dell'intestazione in vigore al momento dell'invio (es. la revisione del modulo)
+    intestazione: Object.fromEntries(Object.keys(INTESTAZIONE_BASE).map(k => [k, intestazione[k] ?? INTESTAZIONE_BASE[k]])),
     mensaDalle: $('rMensaDalle').value,
     mensaAlle: $('rMensaAlle').value,
     lavorazioni: $('rLavorazioni').value.trim(),
@@ -658,7 +688,7 @@ function disegnaFronte(r) {
   const val = v => esc(v) || '&nbsp;';
   const testo = v => `<div class="r-valore testo">${val(v)}</div>`;
   $('dettaglioFronte').innerHTML = `
-    ${testataModulo(1)}
+    ${testataModulo(1, { ...intestazione, ...(r.intestazione || {}) })}
     <div class="riquadro">
       <div class="r-riga">
         <div class="r-cella largo"><span class="r-et">COMMESSA:</span><div class="r-valore">${val(r.commessa)}</div></div>
@@ -1054,6 +1084,75 @@ $('btnAggiornaElenchi').onclick = async () => {
     avviso('Elenchi aggiornati', 'ok');
   } catch (err) { await finestra('Elenchi non aggiornati', `<p>${esc(messaggioErrore(err))}</p>`); }
 };
+
+// ---------------------------------------------------------------- intestazione del modulo
+const ETICHETTE_INTESTAZIONE = {
+  sedeLegale: 'Sede legale', sedeOperativa: 'Sede operativa', telefono: 'Telefono e fax', sito: 'Sito internet',
+  titolo: 'Titolo', sottotitolo: 'Sottotitolo', identificazione: 'Identificazione (es. Mod. 22.03)', revisione: 'Revisione',
+  dataRevisione: 'Data della revisione', norma1: 'Norma 1', norma2: 'Norma 2', norma3: 'Norma 3'
+};
+let logoInModifica = null;      // logo scelto ma non ancora salvato ('' = logo originale)
+let intestazioneToccata = false; // il responsabile sta scrivendo: non sovrascrivere i suoi campi
+
+function valoriFormIntestazione() {
+  const v = {};
+  document.querySelectorAll('#campiIntestazione [data-campo]').forEach(inp => { v[inp.dataset.campo] = inp.value.trim(); });
+  v.logo = logoInModifica !== null ? logoInModifica : intestazione.logo;
+  return v;
+}
+function anteprimaIntestazione() {
+  $('anteprimaIntestazione').innerHTML = testataModulo(1, valoriFormIntestazione());
+}
+function disegnaGestioneIntestazione() {
+  if (stato.utente?.ruolo !== 'responsabile' || intestazioneToccata) return;
+  $('campiIntestazione').innerHTML = Object.entries(ETICHETTE_INTESTAZIONE).map(([k, et]) => `
+    <label class="campo"><span>${et}</span><input data-campo="${k}" maxlength="120" value="${esc(intestazione[k])}"></label>`).join('');
+  logoInModifica = null;
+  anteprimaIntestazione();
+}
+$('campiIntestazione').addEventListener('input', () => { intestazioneToccata = true; anteprimaIntestazione(); });
+
+// Logo caricato dal PC: rimpicciolito (max 800 pixel di larghezza) perché stia nel database
+$('fileLogo').addEventListener('change', async e => {
+  const file = e.target.files[0];
+  e.target.value = '';
+  if (!file) return;
+  try {
+    const img = await createImageBitmap(file);
+    const scala = Math.min(1, 800 / img.width);
+    const c = document.createElement('canvas');
+    c.width = Math.round(img.width * scala); c.height = Math.round(img.height * scala);
+    c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+    let dato = c.toDataURL('image/png');
+    if (dato.length > 700000) { // troppo pesante: JPEG su fondo bianco
+      const ctx = c.getContext('2d');
+      ctx.globalCompositeOperation = 'destination-over'; ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, c.width, c.height);
+      dato = c.toDataURL('image/jpeg', 0.85);
+    }
+    if (dato.length > 900000) throw new Error('immagine troppo grande anche dopo averla rimpicciolita');
+    logoInModifica = dato;
+    intestazioneToccata = true;
+    anteprimaIntestazione();
+    avviso('Logo pronto: premi "Salva intestazione" per confermarlo');
+  } catch (err) { avviso(`Logo non caricato: ${err.message}`, 'errore'); }
+});
+$('btnLogoOriginale').onclick = () => { logoInModifica = ''; intestazioneToccata = true; anteprimaIntestazione(); };
+$('btnIntestazioneBase').onclick = () => {
+  document.querySelectorAll('#campiIntestazione [data-campo]').forEach(inp => { inp.value = INTESTAZIONE_BASE[inp.dataset.campo]; });
+  intestazioneToccata = true;
+  anteprimaIntestazione();
+};
+$('formIntestazione').addEventListener('submit', async e => {
+  e.preventDefault();
+  const v = valoriFormIntestazione();
+  if (!await conferma('Salvare l\'intestazione?', `<p>La nuova intestazione comparirà sui rapportini compilati da adesso in poi.</p>
+    <div class="modulo">${testataModulo(1, v)}</div>`, 'Salva')) return;
+  try {
+    await setDoc(doc(db, 'elenchi', 'intestazione'), { ...v, aggiornatoIl: serverTimestamp(), aggiornatoDa: stato.utente.nome });
+    intestazioneToccata = false;
+    avviso('Intestazione salvata', 'ok');
+  } catch (err) { avviso(messaggioErrore(err), 'errore'); }
+});
 
 // ---------------------------------------------------------------- automezzi
 function disegnaGestioneMezzi() {

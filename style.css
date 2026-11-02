@@ -350,3 +350,10 @@ button.o-p { cursor: pointer; -webkit-tap-highlight-color: transparent; }
 .mezzi-scelti { display: flex; flex-wrap: wrap; gap: 6px; }
 .mezzi-scelti:empty { display: none; }
 .togli-mezzo { border: 0; background: none; color: var(--inchiostro); font-size: 1.1rem; font-weight: 800; cursor: pointer; padding: 0 2px 0 6px; min-width: 32px; min-height: 32px; }
+
+/* intestazione modificabile */
+.anteprima-intestazione { padding: 8px; margin-bottom: 12px; box-shadow: none; }
+.anteprima-intestazione .testata { margin-bottom: 0; }
+.riga-logo { display: flex; flex-wrap: wrap; gap: 8px; margin: 4px 0 8px; }
+.riga-logo label.btn { display: inline-flex; align-items: center; }
+.finestra-box .modulo { padding: 6px; box-shadow: none; }

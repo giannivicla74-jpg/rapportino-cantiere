@@ -2,6 +2,11 @@
 // La usano la scritta in fondo alla pagina (con l'elenco "Novità") e il service worker (sw.js)
 // per scaricare la versione nuova.
 self.APP_STORICO = [
+  { versione: '0.6', data: '03/11/2026', novita: [
+    'Intestazione del modulo modificabile dall\'ufficio: sedi, telefono, sito, titolo, revisione, data e norme',
+    'Si può cambiare il logo (e tornare a quello originale)',
+    'Ogni rapportino conserva l\'intestazione con cui è stato compilato'
+  ] },
   { versione: '0.5', data: '03/11/2026', novita: [
     'Numero di versione sempre visibile in fondo alla pagina',
     'Elenco "Novità" con le modifiche di ogni versione'
