@@ -109,7 +109,10 @@ function testataModulo(pagina) {
   </div>`;
 }
 document.querySelectorAll('.testata-pos').forEach(el => { el.outerHTML = testataModulo(Number(el.dataset.pagina)); });
-$('versioneApp').textContent = `Versione ${self.APP_VERSION} del ${self.APP_VERSION_DATE}`;
+$('versioneApp').textContent = `Versione ${self.APP_VERSION} del ${self.APP_VERSION_DATE} · Novità`;
+$('versioneApp').onclick = () => finestra('Novità delle versioni', (self.APP_STORICO || []).map(v => `
+  <h3>Versione ${esc(v.versione)} <span class="aiuto">del ${esc(v.data)}</span></h3>
+  <ul>${v.novita.map(n => `<li>${esc(n)}</li>`).join('')}</ul>`).join(''));
 if ('serviceWorker' in navigator && location.protocol !== 'file:') {
   navigator.serviceWorker.register('sw.js').catch(() => {});
 }
