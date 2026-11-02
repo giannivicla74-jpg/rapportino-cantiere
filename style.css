@@ -149,24 +149,6 @@ input[readonly] { background: var(--evidenza); }
 .cerca { max-width: 220px; min-height: 38px; padding: 6px 10px; }
 .firma-nota { margin-top: 14px; font-size: .9rem; color: var(--testo-tenue); border-top: 1px dashed var(--bordo); padding-top: 10px; }
 
-/* ---------- lista operai (colonna P) ---------- */
-.lista-operai { border: 1px solid var(--bordo); border-radius: 8px; overflow: hidden; margin-bottom: 16px; }
-.operaio { border-bottom: 1px solid var(--bordo); }
-.operaio:last-child { border-bottom: 0; }
-.operaio-riga {
-  display: flex; align-items: center; gap: 12px; padding: 6px 12px; cursor: pointer; min-height: 52px;
-  user-select: none; -webkit-tap-highlight-color: transparent;
-}
-.operaio-num { width: 26px; text-align: right; color: var(--testo-tenue); font-size: .85rem; flex: none; }
-.operaio-nome { flex: 1; font-weight: 600; }
-.casella-p {
-  width: 36px; height: 36px; flex: none; border: 2px solid var(--bordo-forte); border-radius: 6px;
-  display: grid; place-items: center; font-size: 1.5rem; font-weight: 800; color: var(--accento);
-}
-.operaio.presente { background: var(--evidenza); }
-.operaio.presente .casella-p::after { content: "✕"; }
-.operaio .orari { display: none; padding: 0 12px 12px 50px; }
-.operaio.presente .orari { display: grid; }
 .orari { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; display: grid; }
 @media (min-width: 640px) { .orari { grid-template-columns: repeat(4, minmax(0, 1fr)); } .orari.due { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 .orari label { display: flex; flex-direction: column; gap: 2px; font-size: .75rem; color: var(--testo-tenue); min-width: 0; }
@@ -240,4 +222,118 @@ table.tab { border-collapse: collapse; width: 100%; font-size: .92rem; }
 @media print {
   .barra, .avviso, .azioni, #btnTornaElenco, .avvisi { display: none !important; }
   body { background: #fff; }
+}
+
+/* ============================================================
+   MODULO CARTACEO (Mod. 22.03): carta bianca e inchiostro blu anche con il tema scuro
+   ============================================================ */
+.modulo {
+  --carta: #ffffff; --testo: #111111; --testo-tenue: #555b63; --bordo: #9aa3ad; --bordo-forte: #111111;
+  --evidenza: #eef2f8; --inchiostro: #1a3fa0; --fascia: #e4e4e4;
+  color-scheme: light;
+  background: #fff; color: #111; border: 1px solid #111; padding: 12px; margin: 0 auto 18px; max-width: 920px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, .18); font-family: Arial, Helvetica, sans-serif;
+}
+.modulo input, .modulo select, .modulo textarea { background: #fff; color: var(--inchiostro); }
+.serif { font-family: "Times New Roman", Times, Georgia, serif; }
+
+/* intestazione */
+.testata { border: 1px solid #111; margin-bottom: 12px; }
+.t-alto { display: grid; grid-template-columns: 46% 54%; border-bottom: 1px solid #111; }
+.t-logo { padding: 6px 10px; display: flex; align-items: center; justify-content: center; border-right: 1px solid #111; }
+.t-logo img { width: 100%; max-width: 330px; height: auto; display: block; }
+.t-sede { font-style: italic; font-size: .62rem; line-height: 1.55; padding: 6px 10px; display: flex; flex-direction: column; justify-content: center; }
+.t-titolo { font-weight: 800; font-style: italic; text-align: center; padding: 6px 8px; font-size: clamp(.68rem, 2.4vw, 1.12rem); border-bottom: 1px solid #111; letter-spacing: .01em; }
+.t-sotto { font-weight: 700; text-align: center; font-size: .78rem; padding: 2px; border-bottom: 1px solid #111; }
+.t-griglia { display: grid; grid-template-columns: repeat(4, 1fr); font-size: .56rem; text-align: center; }
+.t-griglia div { padding: 2px 3px; border-right: 1px solid #111; border-bottom: 1px solid #111; }
+.t-griglia div:nth-child(4n) { border-right: 0; }
+.t-griglia div:nth-child(n+5) { border-bottom: 0; }
+@media (min-width: 640px) { .t-sede { font-size: .8rem; } .t-griglia { font-size: .78rem; } .t-sotto { font-size: .9rem; } }
+
+/* riquadri con etichette in corsivo come sulla carta */
+.riquadro { border: 2px solid #111; margin-top: 10px; }
+.r-riga { display: flex; border-bottom: 1px solid #111; }
+.r-riga:last-child { border-bottom: 0; }
+.r-cella { flex: 1 1 0; min-width: 0; display: flex; align-items: center; gap: 8px; padding: 4px 8px; margin: 0; }
+.r-cella + .r-cella { border-left: 1px solid #111; }
+.r-cella.largo { flex-grow: 1.6; }
+.r-cella:has(textarea), .r-cella:has(.testo) { flex-direction: column; align-items: stretch; padding: 0; gap: 0; }
+.r-et { font-family: "Times New Roman", Times, Georgia, serif; font-style: italic; font-weight: 700; white-space: nowrap; font-size: 1.02rem; }
+.r-et.grande { font-size: 1.15rem; }
+.r-et.normale { font-weight: 400; }
+.r-et.fascia { display: block; background: var(--fascia); text-align: center; padding: 3px 8px; border-bottom: 1px solid #111; }
+.r-et.fascia.sinistra { text-align: left; }
+.r-cella:has(textarea) > .r-et:not(.fascia), .r-cella:has(.testo) > .r-et:not(.fascia) { padding: 4px 8px 0; }
+.riquadro input, .riquadro select {
+  border: 0; border-bottom: 1.5px dotted #777; border-radius: 0; min-height: 40px; padding: 4px 2px; flex: 1; min-width: 0;
+  font-size: 1.05rem; font-weight: 600;
+}
+.riquadro input[readonly] { background: transparent; }
+.riquadro textarea {
+  border: 0; border-radius: 0; padding: 2px 8px; font-size: 1rem; line-height: 1.8em; min-height: 3.6em;
+  background: repeating-linear-gradient(#fff 0, #fff calc(1.8em - 1px), #bfc5cc calc(1.8em - 1px), #bfc5cc 1.8em);
+  background-attachment: local;
+}
+.riquadro :focus { outline: 2px solid var(--inchiostro); outline-offset: -2px; }
+.r-valore { flex: 1; color: var(--inchiostro); font-weight: 600; border-bottom: 1.5px dotted #777; min-height: 1.6em; padding: 2px; overflow-wrap: anywhere; }
+.r-valore.testo { border: 0; padding: 4px 8px; white-space: pre-wrap; min-height: 2.4em; font-weight: 500; }
+.dalle-alle { display: flex; align-items: center; gap: 6px; flex: 1; font-style: italic; }
+.dalle-alle input { max-width: 120px; min-width: 0; flex: 1 1 0; }
+.r-cella:has(.dalle-alle) { flex-wrap: wrap; }
+.r-cella:has(.dalle-alle) .dalle-alle { min-width: 220px; }
+.dalle-alle b { color: var(--inchiostro); }
+.firma { font-family: "Segoe Script", "Brush Script MT", "Comic Sans MS", cursive; color: var(--inchiostro); font-size: 1rem; }
+.tenue { color: var(--testo-tenue); font-family: Arial, sans-serif; font-style: italic; font-size: .85rem; }
+/* pagina 2 come sul retro: tabella del turno sopra, riquadro ore sotto a destra */
+.modulo .blocco-corpo { grid-template-columns: 1fr; }
+.modulo .blocco-corpo > .tabella-scorri:last-child { justify-self: end; width: 100%; max-width: 420px; }
+@media (max-width: 560px) {
+  .r-riga { flex-direction: column; }
+  .r-cella { flex-wrap: wrap; }
+  .riquadro .r-cella > input, .riquadro .r-cella > select { flex-basis: 150px; }
+  .r-cella + .r-cella { border-left: 0; border-top: 1px solid #111; }
+  .r-et { font-size: .95rem; }
+}
+
+/* tabella operai: COGNOME E NOME | P | partenza | Dalle/Alle | rientro */
+.aiuti-operai { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; justify-content: space-between; margin: 14px 0 6px; font-size: .9rem; }
+.tab-operai { border: 2px solid #111; margin-top: 6px; }
+.operaio { display: grid; grid-template-columns: 1fr 48px; border-bottom: 1px solid #111; }
+.operaio:last-child { border-bottom: 0; }
+.operaio.testa { background: var(--fascia); font-family: "Times New Roman", Times, serif; font-style: italic; font-weight: 700; }
+.operaio.testa .o-nome { font-size: 1.05rem; cursor: default; }
+.operaio.testa .o-p { font-size: 1.2rem; }
+.o-nome {
+  display: flex; align-items: center; gap: .45em; padding: 4px 8px; min-height: 46px; cursor: pointer;
+  font-family: "Times New Roman", Times, serif; font-style: italic; font-size: 1.02rem; text-transform: uppercase;
+  user-select: none; -webkit-tap-highlight-color: transparent;
+}
+.o-num { min-width: 1.6em; }
+.o-p { border: 0; border-left: 1px solid #111; border-radius: 0; background: none; display: grid; place-items: center; padding: 0; font: inherit; color: inherit; }
+button.o-p { cursor: pointer; -webkit-tap-highlight-color: transparent; }
+.casella-p::after { content: ""; font: 800 1.7rem/1 Arial, sans-serif; color: var(--inchiostro); }
+.operaio.presente .casella-p::after { content: "✕"; }
+.operaio.presente:not(.testa) { background: #f1f5ff; }
+.o-ora { display: none; }
+.o-et { font-size: .72rem; color: var(--testo-tenue); font-style: italic; }
+.o-ora input { border: 0; border-bottom: 1.5px dotted #777; border-radius: 0; min-height: 36px; padding: 2px; background: transparent; font-weight: 600; width: 100%; }
+.o-ora b { color: var(--inchiostro); }
+/* telefono: gli orari compaiono sotto il nome quando c'è la X */
+@media (max-width: 759px) {
+  .operaio.testa .o-ora { display: none !important; }
+  .operaio.presente .o-ora { display: grid; grid-column: 1 / -1; grid-template-columns: 6.5em minmax(0, 1fr); align-items: center; gap: 2px 6px; padding: 0 8px 4px 2.2em; min-width: 0; }
+  .operaio.presente .o-et { line-height: 1.15; }
+  .o-ora input { min-width: 0; }
+  .operaio.presente .o-rientro { padding-bottom: 8px; }
+}
+/* PC e tablet: tabella completa come sulla carta */
+@media (min-width: 760px) {
+  .operaio { grid-template-columns: minmax(200px, 2.2fr) 48px 1fr 2.1fr 1fr; }
+  .o-ora { display: flex; align-items: center; justify-content: center; gap: 6px; border-left: 1px solid #111; padding: 2px 8px; }
+  .operaio.testa .o-ora { font-size: .72rem; text-align: center; line-height: 1.2; }
+  .o-partenza .o-et, .o-rientro .o-et { display: none; }
+  .o-cantiere .o-et { font-size: .95rem; color: #111; font-family: "Times New Roman", serif; }
+  .operaio:not(.presente) .o-ora > * { display: none; }
+  .operaio:not(.presente):not(.testa) .o-cantiere::before { content: "Dalle ………… Alle …………"; font-family: "Times New Roman", serif; font-style: italic; color: #333; }
 }

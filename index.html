@@ -105,41 +105,27 @@
 
       <!-- ========== COMPILA (pagina 1 del modulo) ========== -->
       <div class="vista" id="vistaCompila" hidden>
-        <form id="formRapportino" class="foglio" novalidate>
-          <div class="foglio-testata">
-            <div class="foglio-titolo">RAPPORTO DI CANTIERE</div>
-            <div class="foglio-mod">Mod. 22.03 · Pagina 1 di 2</div>
-          </div>
+        <form id="formRapportino" class="modulo" novalidate>
+          <div class="testata-pos" data-pagina="1"></div>
 
           <p class="errore" id="erroreElenchi" hidden></p>
 
-          <div class="griglia-2">
-            <label class="campo">
-              <span>Commessa</span>
-              <select id="rCommessa" required></select>
-            </label>
-            <label class="campo">
-              <span>Data</span>
-              <input id="rData" type="date" required>
-            </label>
-          </div>
-          <label class="campo">
-            <span>Localizzazione del sito</span>
-            <input id="rLocalita" autocomplete="off">
-          </label>
-          <div class="griglia-2">
-            <label class="campo">
-              <span>Caposquadra</span>
-              <input id="rCaposquadra" readonly tabindex="-1">
-            </label>
-            <label class="campo">
-              <span>Responsabile di commessa</span>
-              <input id="rResponsabile" autocomplete="off">
-            </label>
+          <div class="riquadro">
+            <div class="r-riga">
+              <label class="r-cella largo"><span class="r-et">COMMESSA:</span><select id="rCommessa" required></select></label>
+              <label class="r-cella"><span class="r-et">DATA:</span><input id="rData" type="date" required></label>
+            </div>
+            <div class="r-riga">
+              <label class="r-cella"><span class="r-et grande">LOCALIZZAZIONE DEL SITO:</span><input id="rLocalita" autocomplete="off"></label>
+            </div>
+            <div class="r-riga">
+              <label class="r-cella largo"><span class="r-et">Caposquadra:</span><input id="rCaposquadra" readonly tabindex="-1"></label>
+              <label class="r-cella"><span class="r-et">Responsabile di Commessa:</span><input id="rResponsabile" autocomplete="off"></label>
+            </div>
           </div>
 
-          <div class="sezione-titolo">
-            <span>Operai presenti <b id="contaPresenti">0</b></span>
+          <div class="aiuti-operai">
+            <span>Presenti: <b id="contaPresenti">0</b> · tocca il nome o la casella <b>P</b></span>
             <input id="cercaOperaio" class="cerca" type="search" placeholder="Cerca nome…" autocomplete="off">
           </div>
           <div class="orari-tutti" id="orariTutti" hidden>
@@ -152,35 +138,44 @@
             </div>
             <button type="button" class="btn piccolo" id="btnApplicaTutti">Applica a tutti i presenti</button>
           </div>
-          <div class="lista-operai" id="listaOperai"></div>
 
-          <div class="griglia-2">
-            <label class="campo">
-              <span>Automezzi utilizzati</span>
-              <textarea id="rAutomezzi" rows="2"></textarea>
-            </label>
-            <div class="campo">
-              <span>Orario di pausa mensa</span>
-              <div class="orari due">
-                <label><span>Dalle</span><input id="rMensaDalle" type="time"></label>
-                <label><span>Alle</span><input id="rMensaAlle" type="time"></label>
+          <div class="tab-operai">
+            <div class="operaio testa">
+              <div class="o-nome">COGNOME E NOME</div>
+              <div class="o-p">P</div>
+              <div class="o-ora o-partenza">ORARIO PARTENZA DA DEPOSITO</div>
+              <div class="o-ora o-cantiere">ORARIO DI LAVORO IN CANTIERE</div>
+              <div class="o-ora o-rientro">ORARIO RIENTRO IN DEPOSITO</div>
+            </div>
+            <div id="listaOperai"></div>
+          </div>
+
+          <div class="riquadro">
+            <div class="r-riga">
+              <label class="r-cella largo"><span class="r-et">AUTOMEZZI UTILIZZATI:</span><textarea id="rAutomezzi" rows="2"></textarea></label>
+              <div class="r-cella"><span class="r-et normale">ORARIO DI PAUSA MENSA:</span>
+                <div class="dalle-alle"><span>Dalle</span><input id="rMensaDalle" type="time"><span>Alle</span><input id="rMensaAlle" type="time"></div>
               </div>
             </div>
           </div>
-          <label class="campo">
-            <span>Lavorazioni eseguite</span>
-            <textarea id="rLavorazioni" rows="3"></textarea>
-          </label>
-          <label class="campo">
-            <span>Altre notizie</span>
-            <textarea id="rNotizie" rows="2"></textarea>
-          </label>
-          <label class="campo">
-            <span>Controlli effettuati</span>
-            <textarea id="rControlli" rows="2"></textarea>
-          </label>
 
-          <div class="firma-nota">Firma caposquadra: vale l'accesso con il tuo codice. All'invio vengono registrati il tuo nome, la data e l'ora.</div>
+          <div class="riquadro">
+            <div class="r-riga">
+              <label class="r-cella largo"><span class="r-et fascia">LAVORAZIONI ESEGUITE:</span><textarea id="rLavorazioni" rows="3"></textarea></label>
+              <label class="r-cella"><span class="r-et fascia">ALTRE NOTIZIE</span><textarea id="rNotizie" rows="3"></textarea></label>
+            </div>
+            <div class="r-riga">
+              <label class="r-cella"><span class="r-et fascia sinistra">CONTROLLI EFFETTUATI:</span><textarea id="rControlli" rows="2"></textarea></label>
+            </div>
+          </div>
+
+          <div class="riquadro">
+            <div class="r-riga">
+              <div class="r-cella largo"><span class="r-et">Firma Caposquadra:</span><span class="firma" id="firmaCapo"></span></div>
+              <div class="r-cella"><span class="r-et">Firma RC:</span><span class="firma tenue">alla convalida</span></div>
+            </div>
+          </div>
+          <p class="aiuto">La firma è il tuo accesso: all'invio vengono registrati il tuo nome, la data e l'ora.</p>
 
           <div class="azioni">
             <button type="button" class="btn" id="btnSvuota">Svuota</button>
@@ -219,12 +214,9 @@
       <!-- ========== DETTAGLIO (pagina 2 del modulo) ========== -->
       <div class="vista" id="vistaDettaglio" hidden>
         <button class="link" id="btnTornaElenco">← Torna all'elenco</button>
-        <div id="dettaglioFronte" class="foglio"></div>
-        <div class="foglio">
-          <div class="foglio-testata">
-            <div class="foglio-titolo">ORE · TURNI DI LAVORO</div>
-            <div class="foglio-mod">Mod. 22.03 · Pagina 2 di 2</div>
-          </div>
+        <div id="dettaglioFronte" class="modulo"></div>
+        <div class="modulo">
+          <div class="testata-pos" data-pagina="2"></div>
           <p class="aiuto">Come sul retro del modulo: ogni blocco vale per gli operai spuntati. Se tutti hanno fatto le stesse ore basta un blocco.</p>
           <div id="blocchi"></div>
           <button class="btn" id="btnAggiungiBlocco">+ Aggiungi blocco</button>

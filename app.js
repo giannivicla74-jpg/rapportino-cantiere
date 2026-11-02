@@ -86,6 +86,29 @@ function messaggioErrore(err) {
 }
 
 // ---------------------------------------------------------------- avvio
+// Intestazione come sul modulo cartaceo (pagina 1 completa, pagina 2 solo la riga di identificazione)
+function testataModulo(pagina) {
+  const griglia = `<div class="t-griglia">
+      <div>Identificazione: Mod. 22.03</div><div>Revisione: 03</div><div>Data: 08/01/2016</div><div>Pagina ${pagina} di 2</div>
+      <div>Rif. Norme</div><div>UNI EN ISO 9001:2015</div><div>UNI EN ISO 14001:2015</div><div>BS OHSAS 18001:2007</div>
+    </div>`;
+  if (pagina === 2) return `<div class="testata">${griglia}</div>`;
+  return `<div class="testata">
+    <div class="t-alto">
+      <div class="t-logo"><img src="icons/logo-vicla.png" alt="Vi.Cla. Future"></div>
+      <div class="t-sede">
+        <div>Sede legale: Viale Michelangelo n. 33 – 80127 Napoli (NA)</div>
+        <div>Sede operativa: Strada Consortile SNC - 81032 Carinaro (CE)</div>
+        <div>Tel. e Fax 081/502.97.30</div>
+        <div>www.vicla.it</div>
+      </div>
+    </div>
+    <div class="t-titolo">MODELLO DEL SISTEMA DI GESTIONE INTEGRATO QUALITA’, AMBIENTE E SICUREZZA</div>
+    <div class="t-sotto">RAPPORTO DI CANTIERE</div>
+    ${griglia}
+  </div>`;
+}
+document.querySelectorAll('.testata-pos').forEach(el => { el.outerHTML = testataModulo(Number(el.dataset.pagina)); });
 $('versioneApp').textContent = `Versione ${self.APP_VERSION} del ${self.APP_VERSION_DATE}`;
 if ('serviceWorker' in navigator && location.protocol !== 'file:') {
   navigator.serviceWorker.register('sw.js').catch(() => {});
@@ -251,6 +274,7 @@ const CAMPI_TESTO = { localita: 'rLocalita', responsabile: 'rResponsabile', auto
 
 function avviaCompilazione() {
   $('rCaposquadra').value = stato.utente.nome;
+  $('firmaCapo').textContent = `${stato.utente.nome} (registrata all'invio)`;
   caricaBozza();
   const off = onSnapshot(doc(db, 'elenchi', 'correnti'), snap => {
     const d = snap.exists() ? snap.data() : {};
@@ -284,25 +308,22 @@ function disegnaOperai() {
   }
   // chi era segnato ma non è più nell'elenco viene tolto
   for (const nome of [...stato.presenti.keys()]) if (!stato.elenchi.operai.includes(nome)) stato.presenti.delete(nome);
-  box.innerHTML = stato.elenchi.operai.map((nome, i) => {
-    const o = stato.presenti.get(nome);
-    const v = k => esc(o?.[k] || '');
-    return `<div class="operaio ${o ? 'presente' : ''}" data-nome="${esc(nome)}">
-      <div class="operaio-riga" role="checkbox" aria-checked="${!!o}" tabindex="0">
-        <span class="operaio-num">${i + 1}.</span>
-        <span class="operaio-nome">${esc(nome)}</span>
-        <span class="casella-p" aria-label="Presente"></span>
-      </div>
-      <div class="orari">
-        <label><span>Partenza deposito</span><input type="time" data-orario="partenza" value="${v('partenza')}"></label>
-        <label><span>Dalle</span><input type="time" data-orario="dalle" value="${v('dalle')}"></label>
-        <label><span>Alle</span><input type="time" data-orario="alle" value="${v('alle')}"></label>
-        <label><span>Rientro deposito</span><input type="time" data-orario="rientro" value="${v('rientro')}"></label>
-      </div>
-    </div>`;
-  }).join('');
+  box.innerHTML = stato.elenchi.operai.map((nome, i) => rigaOperaio(nome, i)).join('');
   filtraOperai();
   aggiornaContaPresenti();
+}
+
+// Una riga della tabella come sul modulo: nome, casella P, partenza, Dalle/Alle, rientro
+function rigaOperaio(nome, i) {
+  const o = stato.presenti.get(nome);
+  const v = k => esc(o?.[k] || '');
+  return `<div class="operaio ${o ? 'presente' : ''}" data-nome="${esc(nome)}">
+    <div class="o-nome" data-tocca><span class="o-num">${i + 1}.</span>${esc(nome)}</div>
+    <button type="button" class="o-p casella-p" data-tocca aria-pressed="${!!o}" aria-label="Presente: ${esc(nome)}"></button>
+    <div class="o-ora o-partenza"><span class="o-et">Partenza deposito</span><input type="time" data-orario="partenza" value="${v('partenza')}"></div>
+    <div class="o-ora o-cantiere"><span class="o-et">Dalle</span><input type="time" data-orario="dalle" value="${v('dalle')}"><span class="o-et">Alle</span><input type="time" data-orario="alle" value="${v('alle')}"></div>
+    <div class="o-ora o-rientro"><span class="o-et">Rientro deposito</span><input type="time" data-orario="rientro" value="${v('rientro')}"></div>
+  </div>`;
 }
 
 function segnaPresente(div) {
@@ -311,23 +332,15 @@ function segnaPresente(div) {
   else stato.presenti.set(nome, { partenza: '', dalle: '', alle: '', rientro: '' });
   const si = stato.presenti.has(nome);
   div.classList.toggle('presente', si);
-  div.querySelector('.operaio-riga').setAttribute('aria-checked', si);
+  div.querySelector('.casella-p').setAttribute('aria-pressed', si);
   if (!si) div.querySelectorAll('[data-orario]').forEach(inp => { inp.value = ''; });
   aggiornaContaPresenti();
   salvaBozza();
 }
 
 $('listaOperai').addEventListener('click', e => {
-  const riga = e.target.closest('.operaio-riga');
-  if (riga) segnaPresente(riga.parentElement);
-});
-$('listaOperai').addEventListener('keydown', e => {
-  if ((e.key === ' ' || e.key === 'Enter') && e.target.classList.contains('operaio-riga')) {
-    e.preventDefault();
-    segnaPresente(e.target.parentElement);
-  }
-});
-$('listaOperai').addEventListener('input', e => {
+  if (e.target.closest('[data-tocca]')) segnaPresente(e.target.closest('.operaio'));
+});$('listaOperai').addEventListener('input', e => {
   const k = e.target.dataset.orario;
   if (!k) return;
   const nome = e.target.closest('.operaio').dataset.nome;
@@ -592,27 +605,58 @@ function apriRapportino(r) {
 }
 $('btnTornaElenco').onclick = () => mostraVista(stato.aperto?.dati?.stato === 'convalidato' ? 'convalidati' : 'arrivati');
 
+// Pagina 1 in sola lettura, con la stessa grafica del modulo
 function disegnaFronte(r) {
-  const dato = (etichetta, valore) => `<div class="dato"><span>${etichetta}</span><b>${esc(valore) || '—'}</b></div>`;
+  const val = v => esc(v) || '&nbsp;';
+  const testo = v => `<div class="r-valore testo">${val(v)}</div>`;
   $('dettaglioFronte').innerHTML = `
-    <div class="foglio-testata">
-      <div class="foglio-titolo">RAPPORTO DI CANTIERE</div>
-      <div class="foglio-mod">Mod. 22.03 · Pagina 1 di 2</div>
+    ${testataModulo(1)}
+    <div class="riquadro">
+      <div class="r-riga">
+        <div class="r-cella largo"><span class="r-et">COMMESSA:</span><div class="r-valore">${val(r.commessa)}</div></div>
+        <div class="r-cella"><span class="r-et">DATA:</span><div class="r-valore">${val(dataIT(r.data))}</div></div>
+      </div>
+      <div class="r-riga"><div class="r-cella"><span class="r-et grande">LOCALIZZAZIONE DEL SITO:</span><div class="r-valore">${val(r.localita)}</div></div></div>
+      <div class="r-riga">
+        <div class="r-cella largo"><span class="r-et">Caposquadra:</span><div class="r-valore">${val(r.caposquadraNome)}</div></div>
+        <div class="r-cella"><span class="r-et">Responsabile di Commessa:</span><div class="r-valore">${val(r.responsabileCommessa)}</div></div>
+      </div>
     </div>
-    <div class="dati-fronte">
-      ${dato('Commessa', r.commessa)}${dato('Data', dataIT(r.data))}${dato('Localizzazione del sito', r.localita)}
-      ${dato('Caposquadra', r.caposquadraNome)}${dato('Responsabile di commessa', r.responsabileCommessa)}
-      ${dato('Pausa mensa', r.mensaDalle || r.mensaAlle ? `${r.mensaDalle || '…'} – ${r.mensaAlle || '…'}` : '')}
+    <div class="tab-operai sola-lettura">
+      <div class="operaio testa">
+        <div class="o-nome">COGNOME E NOME</div><div class="o-p">P</div>
+        <div class="o-ora o-partenza">ORARIO PARTENZA DA DEPOSITO</div>
+        <div class="o-ora o-cantiere">ORARIO DI LAVORO IN CANTIERE</div>
+        <div class="o-ora o-rientro">ORARIO RIENTRO IN DEPOSITO</div>
+      </div>
+      ${(r.operai || []).map((o, i) => `<div class="operaio presente">
+        <div class="o-nome"><span class="o-num">${i + 1}.</span>${esc(o.nome)}</div>
+        <div class="o-p casella-p"></div>
+        <div class="o-ora o-partenza"><span class="o-et">Partenza deposito</span><b>${esc(o.partenza) || '…'}</b></div>
+        <div class="o-ora o-cantiere"><span class="o-et">Dalle</span><b>${esc(o.dalle) || '…'}</b><span class="o-et">Alle</span><b>${esc(o.alle) || '…'}</b></div>
+        <div class="o-ora o-rientro"><span class="o-et">Rientro deposito</span><b>${esc(o.rientro) || '…'}</b></div>
+      </div>`).join('')}
     </div>
-    <div class="tabella-scorri"><table class="tab">
-      <thead><tr><th>#</th><th>Cognome e nome</th><th>P</th><th>Partenza deposito</th><th>Dalle</th><th>Alle</th><th>Rientro deposito</th></tr></thead>
-      <tbody>${(r.operai || []).map((o, i) => `<tr><td>${i + 1}</td><td>${esc(o.nome)}</td><td>✕</td><td>${esc(o.partenza)}</td><td>${esc(o.dalle)}</td><td>${esc(o.alle)}</td><td>${esc(o.rientro)}</td></tr>`).join('')}</tbody>
-    </table></div>
-    <div class="testi-fronte">
-      ${dato('Automezzi utilizzati', r.automezzi)}${dato('Lavorazioni eseguite', r.lavorazioni)}
-      ${dato('Altre notizie', r.altreNotizie)}${dato('Controlli effettuati', r.controlli)}
+    <div class="riquadro">
+      <div class="r-riga">
+        <div class="r-cella largo"><span class="r-et">AUTOMEZZI UTILIZZATI:</span>${testo(r.automezzi)}</div>
+        <div class="r-cella"><span class="r-et normale">ORARIO DI PAUSA MENSA:</span>
+          <div class="dalle-alle"><span>Dalle</span><b>${esc(r.mensaDalle) || '…'}</b><span>Alle</span><b>${esc(r.mensaAlle) || '…'}</b></div></div>
+      </div>
     </div>
-    <div class="firme">Firma caposquadra: inviato da <b>${esc(r.caposquadraNome)}</b> il ${esc(dataOraIT(r.inviatoIl))}</div>`;
+    <div class="riquadro">
+      <div class="r-riga">
+        <div class="r-cella largo"><span class="r-et fascia">LAVORAZIONI ESEGUITE:</span>${testo(r.lavorazioni)}</div>
+        <div class="r-cella"><span class="r-et fascia">ALTRE NOTIZIE</span>${testo(r.altreNotizie)}</div>
+      </div>
+      <div class="r-riga"><div class="r-cella"><span class="r-et fascia sinistra">CONTROLLI EFFETTUATI:</span>${testo(r.controlli)}</div></div>
+    </div>
+    <div class="riquadro">
+      <div class="r-riga">
+        <div class="r-cella largo"><span class="r-et">Firma Caposquadra:</span><span class="firma">${esc(r.caposquadraNome)} · inviato il ${esc(dataOraIT(r.inviatoIl))}</span></div>
+        <div class="r-cella"><span class="r-et">Firma RC:</span><span class="firma">${r.convalidatoDaNome ? `${esc(r.convalidatoDaNome)} · ${esc(dataOraIT(r.convalidatoIl))}` : '<span class="tenue">alla convalida</span>'}</span></div>
+      </div>
+    </div>`;
 }
 
 function opzioniCommessa(scelta) {
