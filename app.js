@@ -254,7 +254,7 @@ function avviaCompilazione() {
   caricaBozza();
   const off = onSnapshot(doc(db, 'elenchi', 'correnti'), snap => {
     const d = snap.exists() ? snap.data() : {};
-    stato.elenchi = { operai: d.operai || [], commesse: d.commesse || [], file: d.file || '', aggiornatoIl: d.aggiornatoIl };
+    stato.elenchi = { operai: d.operai || [], commesse: d.commesse || [], nascoste: d.nascoste || [], file: d.file || '', aggiornatoIl: d.aggiornatoIl };
     $('erroreElenchi').hidden = stato.elenchi.operai.length > 0;
     $('erroreElenchi').textContent = 'Gli elenchi di operai e commesse non sono ancora stati caricati dall\'ufficio (Elenchi e utenti > Aggiorna elenchi).';
     riempiCommesse();
@@ -268,7 +268,8 @@ function avviaCompilazione() {
 function riempiCommesse() {
   const sel = $('rCommessa');
   const attuale = sel.value || ls.get(chiaveBozza())?.commessa || '';
-  const voci = [...stato.elenchi.commesse];
+  // sul telefono solo le commesse vere (le assenze le gestisce il responsabile)
+  const voci = stato.elenchi.commesse.filter(c => !stato.elenchi.nascoste.includes(c));
   if (attuale && !voci.includes(attuale)) voci.unshift(attuale);
   sel.innerHTML = '<option value="">— Scegli la commessa —</option>' + voci.map(c => `<option ${c === attuale ? 'selected' : ''}>${esc(c)}</option>`).join('');
 }
@@ -924,7 +925,22 @@ function mostraInfoElenchi() {
   $('infoElenchi').textContent = e.operai.length
     ? `Ora sui telefoni: ${e.operai.length} operai e ${e.commesse.length} commesse${e.file ? ` (da ${e.file})` : ''}${e.aggiornatoIl ? `, aggiornati il ${dataOraIT(e.aggiornatoIl)}` : ''}.`
     : 'Elenchi non ancora caricati.';
+  $('listaVisibili').innerHTML = e.commesse.map(c => {
+    const si = !e.nascoste.includes(c);
+    return `<label class="chip ${si ? 'si' : ''}"><input type="checkbox" data-voce="${esc(c)}" ${si ? 'checked' : ''}>${esc(c)}</label>`;
+  }).join('');
 }
+
+// Voci che non sono commesse di lavoro: nascoste in automatico sui telefoni
+const VOCE_NON_COMMESSA = /^(ASSENTE|FERIE|MALATTIA|SMONTO|CORSO|VISITA|PERMESSO|ROL\b|INFORTUNIO)/i;
+
+$('listaVisibili').addEventListener('change', async e => {
+  const voce = e.target.dataset.voce;
+  if (voce === undefined) return;
+  const nascoste = e.target.checked ? stato.elenchi.nascoste.filter(c => c !== voce) : [...new Set([...stato.elenchi.nascoste, voce])];
+  try { await updateDoc(doc(db, 'elenchi', 'correnti'), { nascoste }); }
+  catch (err) { avviso(messaggioErrore(err), 'errore'); mostraInfoElenchi(); }
+});
 
 $('btnAggiornaElenchi').onclick = async () => {
   if (!await richiediCartella()) return;
@@ -939,7 +955,10 @@ $('btnAggiornaElenchi').onclick = async () => {
       <p>Dal file <b>${esc(master)}</b>: <b>${operai.length}</b> operai e <b>${commesse.length}</b> commesse.</p>
       <p>I telefoni dei capisquadra li riceveranno alla prossima connessione.</p>`, 'Aggiorna');
     if (!ok) return;
-    await setDoc(doc(db, 'elenchi', 'correnti'), { operai, commesse, file: master, aggiornatoIl: serverTimestamp(), aggiornatoDa: stato.utente.nome });
+    // le scelte già fatte dal responsabile restano; le voci nuove seguono la regola automatica
+    const giaViste = new Set(stato.elenchi.commesse);
+    const nascoste = commesse.filter(c => giaViste.has(c) ? stato.elenchi.nascoste.includes(c) : VOCE_NON_COMMESSA.test(c));
+    await setDoc(doc(db, 'elenchi', 'correnti'), { operai, commesse, nascoste, file: master, aggiornatoIl: serverTimestamp(), aggiornatoDa: stato.utente.nome });
     avviso('Elenchi aggiornati', 'ok');
   } catch (err) { await finestra('Elenchi non aggiornati', `<p>${esc(messaggioErrore(err))}</p>`); }
 };
