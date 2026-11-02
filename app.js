@@ -143,6 +143,8 @@ const stato = {
   utente: null,          // { uid, nome, ruolo, codice }
   elenchi: { operai: [], commesse: [] },
   presenti: new Map(),   // nome -> { partenza, dalle, alle, rientro }
+  automezzi: [],         // elenco dei mezzi (dal database)
+  mezziScelti: new Set(), // mezzi spuntati nel rapportino in compilazione
   arrivati: [],
   aperto: null,          // rapportino aperto dal responsabile: { id, dati, blocchi }
   cartellaPronta: false,
@@ -270,7 +272,7 @@ document.querySelectorAll('.scheda-btn').forEach(b => { b.onclick = () => mostra
 // ================================================================
 const chiaveBozza = () => `rapp_bozza_${stato.utente?.uid}`;
 const chiaveCoda = () => `rapp_coda_${stato.utente?.uid}`;
-const CAMPI_TESTO = { localita: 'rLocalita', responsabile: 'rResponsabile', automezzi: 'rAutomezzi', mensaDalle: 'rMensaDalle', mensaAlle: 'rMensaAlle', lavorazioni: 'rLavorazioni', notizie: 'rNotizie', controlli: 'rControlli' };
+const CAMPI_TESTO = { localita: 'rLocalita', responsabile: 'rResponsabile', mensaDalle: 'rMensaDalle', mensaAlle: 'rMensaAlle', lavorazioni: 'rLavorazioni', notizie: 'rNotizie', controlli: 'rControlli' };
 
 function avviaCompilazione() {
   $('rCaposquadra').value = stato.utente.nome;
@@ -286,8 +288,34 @@ function avviaCompilazione() {
     mostraInfoElenchi();
   }, err => avviso(`Elenchi non disponibili: ${messaggioErrore(err)}`, 'errore'));
   stato.annulla.push(off);
+  // elenco automezzi: lo gestisce il responsabile in "Elenchi e utenti"
+  const offM = onSnapshot(doc(db, 'elenchi', 'automezzi'), snap => {
+    stato.automezzi = snap.exists() ? (snap.data().voci || []) : [];
+    if (snap.exists() || !snap.metadata.fromCache) {
+      for (const m of [...stato.mezziScelti]) if (!stato.automezzi.includes(m)) stato.mezziScelti.delete(m);
+    }
+    disegnaMezzi();
+    disegnaGestioneMezzi();
+  }, () => {});
+  stato.annulla.push(offM);
   controllaCoda();
 }
+
+// Automezzi a spunta, come le X degli operai
+function disegnaMezzi() {
+  const box = $('rAutomezzi');
+  box.innerHTML = stato.automezzi.length
+    ? stato.automezzi.map(m => `<label class="chip ${stato.mezziScelti.has(m) ? 'si' : ''}">
+        <input type="checkbox" data-mezzo="${esc(m)}" ${stato.mezziScelti.has(m) ? 'checked' : ''}>${esc(m)}</label>`).join('')
+    : '<span class="tenue">Nessun automezzo in elenco (lo inserisce l\'ufficio)</span>';
+}
+$('rAutomezzi').addEventListener('change', e => {
+  const m = e.target.dataset.mezzo;
+  if (m === undefined) return;
+  if (e.target.checked) stato.mezziScelti.add(m); else stato.mezziScelti.delete(m);
+  e.target.parentElement.classList.toggle('si', e.target.checked);
+  salvaBozza();
+});
 
 function riempiCommesse() {
   const sel = $('rCommessa');
@@ -376,7 +404,7 @@ $('btnApplicaTutti').onclick = () => {
 // Bozza sul telefono finché il rapportino non viene inviato (se si chiude l'app non si perde il lavoro)
 function salvaBozza() {
   if (!stato.utente) return;
-  const b = { commessa: $('rCommessa').value, data: $('rData').value, presenti: Object.fromEntries(stato.presenti) };
+  const b = { commessa: $('rCommessa').value, data: $('rData').value, presenti: Object.fromEntries(stato.presenti), automezzi: [...stato.mezziScelti] };
   for (const [k, id] of Object.entries(CAMPI_TESTO)) b[k] = $(id).value;
   ls.set(chiaveBozza(), b);
 }
@@ -385,8 +413,10 @@ function caricaBozza() {
   $('rData').value = b.data || oggiISO();
   for (const [k, id] of Object.entries(CAMPI_TESTO)) $(id).value = b[k] || '';
   stato.presenti = new Map(Object.entries(b.presenti || {}));
+  stato.mezziScelti = new Set(Array.isArray(b.automezzi) ? b.automezzi : []);
   riempiCommesse();
   disegnaOperai();
+  disegnaMezzi();
 }
 function svuotaModulo() {
   ls.del(chiaveBozza());
@@ -435,7 +465,7 @@ $('formRapportino').addEventListener('submit', async e => {
     caposquadraUid: stato.utente.uid,
     caposquadraNome: stato.utente.nome,
     operai,
-    automezzi: $('rAutomezzi').value.trim(),
+    automezzi: stato.automezzi.filter(m => stato.mezziScelti.has(m)), // nell'ordine dell'elenco
     mensaDalle: $('rMensaDalle').value,
     mensaAlle: $('rMensaAlle').value,
     lavorazioni: $('rLavorazioni').value.trim(),
@@ -639,7 +669,7 @@ function disegnaFronte(r) {
     </div>
     <div class="riquadro">
       <div class="r-riga">
-        <div class="r-cella largo"><span class="r-et">AUTOMEZZI UTILIZZATI:</span>${testo(r.automezzi)}</div>
+        <div class="r-cella largo"><span class="r-et">AUTOMEZZI UTILIZZATI:</span>${testo(Array.isArray(r.automezzi) ? r.automezzi.join('\n') : r.automezzi)}</div>
         <div class="r-cella"><span class="r-et normale">ORARIO DI PAUSA MENSA:</span>
           <div class="dalle-alle"><span>Dalle</span><b>${esc(r.mensaDalle) || '…'}</b><span>Alle</span><b>${esc(r.mensaAlle) || '…'}</b></div></div>
       </div>
@@ -1006,6 +1036,37 @@ $('btnAggiornaElenchi').onclick = async () => {
     avviso('Elenchi aggiornati', 'ok');
   } catch (err) { await finestra('Elenchi non aggiornati', `<p>${esc(messaggioErrore(err))}</p>`); }
 };
+
+// ---------------------------------------------------------------- automezzi
+function disegnaGestioneMezzi() {
+  if (stato.utente?.ruolo !== 'responsabile') return;
+  $('listaMezzi').innerHTML = stato.automezzi.length
+    ? stato.automezzi.map((m, i) => `<div class="voce">
+        <div class="voce-princ"><div class="voce-titolo">${esc(m)}</div></div>
+        <button class="btn piccolo pericolo" data-togli-mezzo="${i}">Togli</button></div>`).join('')
+    : '<div class="nessuno">Nessun automezzo: aggiungili qui sotto</div>';
+}
+const salvaMezzi = voci => setDoc(doc(db, 'elenchi', 'automezzi'), { voci, aggiornatoIl: serverTimestamp(), aggiornatoDa: stato.utente.nome });
+
+$('formMezzo').addEventListener('submit', async e => {
+  e.preventDefault();
+  const nuovo = $('nuovoMezzo').value.trim().replace(/\s+/g, ' ');
+  if (!nuovo) return;
+  if (stato.automezzi.some(m => m.toUpperCase() === nuovo.toUpperCase())) { avviso('Questo automezzo è già in elenco', 'errore'); return; }
+  try {
+    await salvaMezzi([...stato.automezzi, nuovo]);
+    $('nuovoMezzo').value = '';
+    avviso(`Aggiunto: ${nuovo}`, 'ok');
+  } catch (err) { avviso(messaggioErrore(err), 'errore'); }
+});
+$('listaMezzi').addEventListener('click', async e => {
+  const i = e.target.dataset.togliMezzo;
+  if (i === undefined) return;
+  const m = stato.automezzi[Number(i)];
+  if (!await conferma('Togliere l\'automezzo?', `<p><b>${esc(m)}</b> non comparirà più sui telefoni. I rapportini già inviati non cambiano.</p>`, 'Togli')) return;
+  try { await salvaMezzi(stato.automezzi.filter(x => x !== m)); }
+  catch (err) { avviso(messaggioErrore(err), 'errore'); }
+});
 
 // ---------------------------------------------------------------- utenti
 function disegnaUtenti(utenti) {

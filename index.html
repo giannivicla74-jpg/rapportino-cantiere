@@ -152,7 +152,7 @@
 
           <div class="riquadro">
             <div class="r-riga">
-              <label class="r-cella largo"><span class="r-et">AUTOMEZZI UTILIZZATI:</span><textarea id="rAutomezzi" rows="2"></textarea></label>
+              <div class="r-cella largo colonna"><span class="r-et">AUTOMEZZI UTILIZZATI:</span><div class="scelta-mezzi" id="rAutomezzi"></div></div>
               <div class="r-cella"><span class="r-et normale">ORARIO DI PAUSA MENSA:</span>
                 <div class="dalle-alle"><span>Dalle</span><input id="rMensaDalle" type="time"><span>Alle</span><input id="rMensaAlle" type="time"></div>
               </div>
@@ -242,6 +242,16 @@
           <p class="aiuto">Il caposquadra può scegliere solo le voci spuntate. Assenze, ferie, malattia, smonto notte, corsi e visite
             sono tolte in automatico. Nel blocco ore del responsabile ci sono sempre tutte.</p>
           <div class="blocco-operai" id="listaVisibili"></div>
+        </div>
+
+        <h2>Automezzi</h2>
+        <div class="scheda">
+          <p>Il caposquadra spunta sul telefono gli automezzi usati scegliendoli da questo elenco.</p>
+          <div id="listaMezzi" class="elenco"></div>
+          <form id="formMezzo" class="riga-aggiungi">
+            <input id="nuovoMezzo" placeholder="Es. IVECO 35 - targa AB123CD" maxlength="80" required autocomplete="off">
+            <button class="btn primario" type="submit">Aggiungi</button>
+          </form>
         </div>
 
         <h2>Utenti</h2>
