@@ -345,3 +345,8 @@ button.o-p { cursor: pointer; -webkit-tap-highlight-color: transparent; }
 .scelta-mezzi .chip.si { background: #e8eeff; border-color: var(--inchiostro); color: var(--inchiostro); font-weight: 700; }
 .riga-aggiungi { display: flex; gap: 8px; margin-top: 12px; }
 .riga-aggiungi input { flex: 1; min-width: 0; }
+.scelta-mezzi { flex-direction: column; align-items: stretch; }
+.scelta-mezzi select { border: 0; border-bottom: 1.5px dotted #777; border-radius: 0; min-height: 42px; font-size: 1rem; font-weight: 600; color: var(--inchiostro); background: #fff; }
+.mezzi-scelti { display: flex; flex-wrap: wrap; gap: 6px; }
+.mezzi-scelti:empty { display: none; }
+.togli-mezzo { border: 0; background: none; color: var(--inchiostro); font-size: 1.1rem; font-weight: 800; cursor: pointer; padding: 0 2px 0 6px; min-width: 32px; min-height: 32px; }

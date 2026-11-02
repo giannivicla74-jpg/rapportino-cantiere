@@ -301,19 +301,34 @@ function avviaCompilazione() {
   controllaCoda();
 }
 
-// Automezzi a spunta, come le X degli operai
+// Automezzi: elenco a comparsa; ogni mezzo scelto compare sotto con la ✕ per toglierlo (se ne possono scegliere più)
 function disegnaMezzi() {
   const box = $('rAutomezzi');
-  box.innerHTML = stato.automezzi.length
-    ? stato.automezzi.map(m => `<label class="chip ${stato.mezziScelti.has(m) ? 'si' : ''}">
-        <input type="checkbox" data-mezzo="${esc(m)}" ${stato.mezziScelti.has(m) ? 'checked' : ''}>${esc(m)}</label>`).join('')
-    : '<span class="tenue">Nessun automezzo in elenco (lo inserisce l\'ufficio)</span>';
+  if (!stato.automezzi.length) {
+    box.innerHTML = '<span class="tenue">Nessun automezzo in elenco (lo inserisce l\'ufficio)</span>';
+    return;
+  }
+  const scelti = stato.automezzi.filter(m => stato.mezziScelti.has(m));
+  const liberi = stato.automezzi.filter(m => !stato.mezziScelti.has(m));
+  box.innerHTML = `
+    ${liberi.length ? `<select id="sceltaMezzo" aria-label="Aggiungi automezzo">
+      <option value="">${scelti.length ? '+ Aggiungi un altro automezzo' : '— Scegli l\'automezzo —'}</option>
+      ${liberi.map(m => `<option>${esc(m)}</option>`).join('')}
+    </select>` : ''}
+    <div class="mezzi-scelti">${scelti.map(m => `<span class="chip si">${esc(m)}
+      <button type="button" class="togli-mezzo" data-togli="${esc(m)}" aria-label="Togli ${esc(m)}">✕</button></span>`).join('')}</div>`;
 }
 $('rAutomezzi').addEventListener('change', e => {
-  const m = e.target.dataset.mezzo;
+  if (e.target.id !== 'sceltaMezzo' || !e.target.value) return;
+  stato.mezziScelti.add(e.target.value);
+  disegnaMezzi();
+  salvaBozza();
+});
+$('rAutomezzi').addEventListener('click', e => {
+  const m = e.target.dataset.togli;
   if (m === undefined) return;
-  if (e.target.checked) stato.mezziScelti.add(m); else stato.mezziScelti.delete(m);
-  e.target.parentElement.classList.toggle('si', e.target.checked);
+  stato.mezziScelti.delete(m);
+  disegnaMezzi();
   salvaBozza();
 });
 
