@@ -688,7 +688,8 @@ function avviaResponsabile() {
   stato.annulla.push(off);
 
   if (stato.utente.sviluppatore) {
-    const offU = onSnapshot(collection(db, 'utenti'), snap => disegnaUtenti(snap.docs.map(d => ({ uid: d.id, ...d.data() }))));
+    const offU = onSnapshot(collection(db, 'utenti'), snap => disegnaUtenti(snap.docs.map(d => ({ uid: d.id, ...d.data() }))),
+      err => avviso(`Elenco utenti non aggiornato: ${messaggioErrore(err)} (ricarica la pagina)`, 'errore'));
     stato.annulla.push(offU);
   }
 
@@ -1623,6 +1624,7 @@ $('listaMezzi').addEventListener('click', async e => {
 
 // ---------------------------------------------------------------- utenti
 function disegnaUtenti(utenti) {
+  stato.utentiLista = utenti;
   utenti.sort((a, b) => (a.ruolo || '').localeCompare(b.ruolo || '') || (a.nome || '').localeCompare(b.nome || ''));
   $('listaUtenti').innerHTML = utenti.map(u => `
     <div class="voce">
@@ -1643,15 +1645,21 @@ $('listaUtenti').addEventListener('click', async e => {
        <p>I rapportini che ha già inviato restano, con il suo nome.</p>
        <p>Lo stesso nome non si potrà riusare per un utente nuovo (aggiungi la seconda iniziale o un numero): se serve solo bloccarlo per un periodo, usa "Disattiva".</p>`, 'Elimina');
     if (!ok) return;
-    try { await deleteDoc(doc(db, 'utenti', el.dataset.elimina)); avviso('Utente eliminato', 'ok'); }
-    catch (err) { avviso(messaggioErrore(err), 'errore'); }
+    try {
+      await deleteDoc(doc(db, 'utenti', el.dataset.elimina));
+      // l'elenco si aggiorna subito, senza aspettare il database (con più schede aperte a volte tarda)
+      disegnaUtenti((stato.utentiLista || []).filter(u => u.uid !== el.dataset.elimina));
+      avviso('Utente eliminato', 'ok');
+    } catch (err) { avviso(messaggioErrore(err), 'errore'); }
     return;
   }
   const b = e.target.closest('[data-uid]');
   if (!b) return;
   const attiva = b.dataset.attivo !== '1';
-  try { await updateDoc(doc(db, 'utenti', b.dataset.uid), { attivo: attiva }); }
-  catch (err) { avviso(messaggioErrore(err), 'errore'); }
+  try {
+    await updateDoc(doc(db, 'utenti', b.dataset.uid), { attivo: attiva });
+    disegnaUtenti((stato.utentiLista || []).map(u => (u.uid === b.dataset.uid ? { ...u, attivo: attiva } : u)));
+  } catch (err) { avviso(messaggioErrore(err), 'errore'); }
 });
 
 // Il nuovo account si crea con una seconda connessione "usa e getta", così il responsabile resta collegato
