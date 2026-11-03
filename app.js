@@ -146,6 +146,13 @@ if ('serviceWorker' in navigator && location.protocol !== 'file:') {
   }).catch(() => {});
   navigator.serviceWorker.addEventListener('controllerchange', () => { if (avevaControllo) mostraAggiornamento(); });
 }
+// Telefono: l'app installata resta in orizzontale (dove il sistema lo permette); nel browser l'avviso si può chiudere
+if (matchMedia('(display-mode: standalone)').matches && screen.orientation?.lock) {
+  screen.orientation.lock('landscape').catch(() => {});
+}
+if (ls.get('rapp_gira_chiuso')) document.body.classList.add('gira-chiuso');
+$('btnChiudiGira').onclick = () => { document.body.classList.add('gira-chiuso'); ls.set('rapp_gira_chiuso', true); };
+
 function mostraAggiornamento() {
   if (document.getElementById('barraAggiorna')) return;
   const barra = document.createElement('div');

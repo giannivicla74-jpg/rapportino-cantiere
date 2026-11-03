@@ -498,3 +498,27 @@ button.o-p { cursor: pointer; -webkit-tap-highlight-color: transparent; }
   .stampa .r-et { font-size: 12px; } .stampa .riquadro input, .stampa .r-valore { font-size: 11px; }
   .stampa .riquadro { margin-top: 6px; }
 }
+
+/* ============================================================
+   TELEFONO IN ORIZZONTALE: tabella completa come sul foglio, barra in alto sottile e non fissa
+   ============================================================ */
+.gira-telefono { display: none; }
+@media (orientation: portrait) and (max-width: 600px) and (pointer: coarse) {
+  body:not(.gira-chiuso) .gira-telefono {
+    display: flex; align-items: center; gap: 10px; margin-bottom: 10px;
+    padding: 10px 12px; border-radius: 10px; background: #fff4d6; color: #1b2430; font-size: .92rem;
+  }
+  .gira-icona { font-size: 1.5rem; }
+}
+@media (orientation: landscape) and (max-height: 520px) {
+  .barra { position: static; padding-top: 4px; padding-bottom: 4px; }
+  .barra-titolo img { width: 24px; height: 24px; }
+  .barra-utente { display: none; }
+  .schede { order: 0; width: auto; }
+  .scheda-btn { padding: 6px 10px; }
+  .contenuto { padding: 8px 12px 40px; }
+  .modulo { padding: 8px; }
+  /* righe della tabella più basse: entrano più operai nello schermo */
+  .o-nome { min-height: 40px; }
+  .o-ora input { min-height: 34px; }
+}

@@ -2,6 +2,11 @@
 // La usano la scritta in fondo alla pagina (con l'elenco "Novità") e il service worker (sw.js)
 // per scaricare la versione nuova.
 self.APP_STORICO = [
+  { versione: '2.1', data: '03/11/2026', novita: [
+    'Sul telefono l\'app installata si apre in orizzontale: tabella operai completa come sul foglio',
+    'Nel browser, con il telefono in verticale, compare l\'avviso \"Gira il telefono\" (si può chiudere)',
+    'In orizzontale la barra in alto è più sottile e scorre via con la pagina'
+  ] },
   { versione: '2.0', data: '03/11/2026', novita: [
     'Quando compila l\'ufficio, il caposquadra si sceglie dall\'elenco operai (prima usciva sempre il nome di chi era entrato)',
     'Sul rapportino resta scritto \"compilato dall\'ufficio\" con il nome di chi l\'ha compilato',
