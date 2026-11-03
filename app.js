@@ -530,10 +530,30 @@ function rigaOperaio(nome, i) {
   </div>`;
 }
 
+// Orari scritti nella riga (si leggono dallo schermo: niente si perde se un evento non è arrivato)
+const CHIAVI_ORARI = ['partenza', 'dalle', 'alle', 'rientro'];
+function orariRiga(div) {
+  const o = {};
+  CHIAVI_ORARI.forEach(k => { o[k] = div.querySelector(`[data-orario="${k}"]`)?.value || ''; });
+  return o;
+}
+// Orari del riquadro "Stessi orari per tutti i presenti" (solo quelli scritti)
+function orariComuni() {
+  const v = {};
+  document.querySelectorAll('[data-tutti]').forEach(inp => { if (inp.value) v[inp.dataset.tutti] = inp.value; });
+  return v;
+}
 function segnaPresente(div) {
   const nome = div.dataset.nome;
   if (stato.presenti.has(nome)) stato.presenti.delete(nome);
-  else stato.presenti.set(nome, { partenza: '', dalle: '', alle: '', rientro: '' });
+  else {
+    // chi viene segnato tiene gli orari già scritti nella riga; quelli vuoti si prendono dagli orari comuni
+    const o = orariRiga(div);
+    const comuni = orariComuni();
+    CHIAVI_ORARI.forEach(k => { if (!o[k] && comuni[k]) o[k] = comuni[k]; });
+    div.querySelectorAll('[data-orario]').forEach(inp => { inp.value = o[inp.dataset.orario]; });
+    stato.presenti.set(nome, o);
+  }
   const si = stato.presenti.has(nome);
   div.classList.toggle('presente', si);
   div.querySelector('.casella-p').setAttribute('aria-pressed', si);
@@ -544,13 +564,25 @@ function segnaPresente(div) {
 
 $('listaOperai').addEventListener('click', e => {
   if (e.target.closest('[data-tocca]')) segnaPresente(e.target.closest('.operaio'));
-});$('listaOperai').addEventListener('input', e => {
+});
+// Orario scritto in una riga: se l'operaio non ha la X, la mette (chi ha un orario era presente)
+function orarioCambiato(e) {
   const k = e.target.dataset.orario;
   if (!k) return;
-  const nome = e.target.closest('.operaio').dataset.nome;
-  const o = stato.presenti.get(nome);
+  const div = e.target.closest('.operaio');
+  const o = stato.presenti.get(div.dataset.nome);
   if (o) { o[k] = e.target.value; salvaBozza(); }
-});
+  else if (e.target.value) segnaPresente(div);
+}
+$('listaOperai').addEventListener('input', orarioCambiato);
+$('listaOperai').addEventListener('change', orarioCambiato);
+// "Stessi orari per tutti": appena si scrive un orario vale per tutti i presenti (il tasto resta)
+document.querySelectorAll('[data-tutti]').forEach(inp => inp.addEventListener('change', () => {
+  if (!inp.value) return;
+  for (const o of stato.presenti.values()) o[inp.dataset.tutti] = inp.value;
+  document.querySelectorAll(`#listaOperai .operaio.presente [data-orario="${inp.dataset.tutti}"]`).forEach(x => { x.value = inp.value; });
+  salvaBozza();
+}));
 
 function filtraOperai() {
   const f = $('cercaOperaio').value.trim().toLowerCase();
@@ -626,8 +658,17 @@ $('formRapportino').addEventListener('submit', async e => {
     return;
   }
 
+  // gli orari si rileggono dallo schermo prima dell'invio
+  document.querySelectorAll('#listaOperai .operaio.presente').forEach(div => {
+    if (stato.presenti.has(div.dataset.nome)) stato.presenti.set(div.dataset.nome, orariRiga(div));
+  });
   // ordine dell'elenco, come sul modulo
   const operai = stato.elenchi.operai.filter(n => stato.presenti.has(n)).map(nome => ({ nome, ...stato.presenti.get(nome) }));
+  const senzaOrari = operai.filter(o => !o.dalle && !o.alle);
+  if (senzaOrari.length && !await conferma('Mancano gli orari', `
+    <p>${senzaOrari.length === operai.length ? 'Nessun operaio ha' : `${senzaOrari.length} operai su ${operai.length} non hanno`} l'orario di lavoro in cantiere (Dalle … Alle …):</p>
+    <ul>${senzaOrari.map(o => `<li>${esc(o.nome)}</li>`).join('')}</ul>
+    <p>Se hai scritto gli orari in "Stessi orari per tutti i presenti", controlla che compaiano nelle righe.</p>`, 'Continua lo stesso')) return;
   const ok = await conferma('Inviare il rapportino?', `
     <p><b>${dataIT(data)}</b> · commessa <b>${esc(commessa)}</b></p>
     <p>${operai.length} operai presenti:</p>
