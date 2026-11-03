@@ -70,15 +70,18 @@ function mostraSchermo(id) {
 }
 
 const codiceValido = c => /^[a-z0-9._-]{2,40}$/.test(c);
-const normCodice = c => String(c || '').trim().toLowerCase();
+// Il codice di accesso nasce dal nome: "Mario Rossi" → "mario.rossi" (senza accenti, maiuscole e spazi).
+// I codici vecchi (es. "001") restano uguali.
+const normCodice = c => String(c || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim()
+  .replace(/[^a-z0-9._-]+/g, '.').replace(/^\.+|\.+$/g, '');
 const emailDi = codice => `${normCodice(codice)}@${DOMINIO_ACCESSI}`;
 
 function messaggioErrore(err) {
   const c = err?.code || '';
-  if (/invalid-credential|wrong-password|user-not-found|invalid-email/.test(c)) return 'Codice o password errati';
+  if (/invalid-credential|wrong-password|user-not-found|invalid-email/.test(c)) return 'Nome o PIN errati';
   if (/network-request-failed|unavailable/.test(c)) return 'Nessuna connessione a internet: riprova quando c\'è campo';
   if (/too-many-requests/.test(c)) return 'Troppi tentativi: aspetta qualche minuto e riprova';
-  if (/email-already-in-use/.test(c)) return 'Questo codice utente esiste già (o apparteneva a un utente eliminato): scegline un altro';
+  if (/email-already-in-use/.test(c)) return 'Esiste già un utente con questo nome (anche eliminato): aggiungi per esempio la seconda iniziale o un numero';
   if (/weak-password/.test(c)) return 'Password troppo corta: almeno 6 caratteri';
   if (/permission-denied/.test(c)) return 'Operazione non permessa per questo utente';
   if (/operation-not-allowed/.test(c)) return 'Accesso con password non attivato in Firebase (vedi la guida)';
@@ -279,6 +282,14 @@ $('formLogin').addEventListener('submit', async e => {
     $('btnLogin').disabled = false;
   }
 });
+
+// Per i vecchi accessi con password con lettere: il campo PIN passa alla tastiera normale (sul telefono)
+$('btnPinLettere').onclick = () => {
+  const lettere = $('loginPassword').inputMode !== 'text';
+  $('loginPassword').inputMode = lettere ? 'text' : 'numeric';
+  $('btnPinLettere').textContent = lettere ? 'Torna alla tastiera numerica' : 'Il tuo vecchio accesso ha una password con lettere?';
+  $('loginPassword').focus();
+};
 
 // Il collegamento "Prima configurazione" è nascosto: compare solo aprendo l'indirizzo con ?configura
 // (oltre alla regola del database che rifiuta una seconda configurazione).
@@ -1617,7 +1628,7 @@ function disegnaUtenti(utenti) {
     <div class="voce">
       <div class="voce-princ">
         <div class="voce-titolo">${esc(u.nome)}</div>
-        <div class="voce-sotto">Codice: ${esc(u.codice)} · ${u.ruolo === 'responsabile' ? (u.sviluppatore ? 'Responsabile · Sviluppatore' : 'Responsabile') : 'Caposquadra'}</div>
+        <div class="voce-sotto">Accesso: ${esc(u.codice)} · ${u.ruolo === 'responsabile' ? (u.sviluppatore ? 'Responsabile · Sviluppatore' : 'Responsabile') : 'Caposquadra'}</div>
       </div>
       <span class="etichetta ${u.attivo ? 'ok' : 'no'}">${u.attivo ? 'Attivo' : 'Disattivato'}</span>
       ${u.uid === stato.utente.uid ? '' : `<button class="btn piccolo" data-uid="${esc(u.uid)}" data-attivo="${u.attivo ? 1 : 0}">${u.attivo ? 'Disattiva' : 'Riattiva'}</button>
@@ -1628,9 +1639,9 @@ $('listaUtenti').addEventListener('click', async e => {
   const el = e.target.closest('[data-elimina]');
   if (el) {
     const ok = await conferma('Eliminare l\'utente?',
-      `<p><b>${esc(el.dataset.nome)}</b> (codice <b>${esc(el.dataset.codice)}</b>) sparirà dall'elenco e non potrà più entrare nell'app.</p>
+      `<p><b>${esc(el.dataset.nome)}</b> sparirà dall'elenco e non potrà più entrare nell'app.</p>
        <p>I rapportini che ha già inviato restano, con il suo nome.</p>
-       <p>Il codice <b>${esc(el.dataset.codice)}</b> non si potrà riusare per un utente nuovo: se serve solo bloccarlo per un periodo, usa "Disattiva".</p>`, 'Elimina');
+       <p>Lo stesso nome non si potrà riusare per un utente nuovo (aggiungi la seconda iniziale o un numero): se serve solo bloccarlo per un periodo, usa "Disattiva".</p>`, 'Elimina');
     if (!ok) return;
     try { await deleteDoc(doc(db, 'utenti', el.dataset.elimina)); avviso('Utente eliminato', 'ok'); }
     catch (err) { avviso(messaggioErrore(err), 'errore'); }
@@ -1647,10 +1658,11 @@ $('listaUtenti').addEventListener('click', async e => {
 $('formUtente').addEventListener('submit', async e => {
   e.preventDefault();
   const nome = $('nuNome').value.trim();
-  const codice = normCodice($('nuCodice').value);
-  const password = $('nuPassword').value;
+  const codice = normCodice(nome);
+  const password = $('nuPassword').value.trim();
   const ruolo = $('nuRuolo').value;
-  if (!codiceValido(codice)) { avviso('Codice utente: solo lettere minuscole, numeri, punto o trattino, senza spazi', 'errore'); return; }
+  if (!codiceValido(codice)) { avviso('Scrivi nome e cognome (almeno 2 lettere)', 'errore'); return; }
+  if (!/^\d{6}$/.test(password)) { avviso('Il PIN deve essere di 6 cifre', 'errore'); return; }
   $('btnCreaUtente').disabled = true;
   let app2;
   try {
@@ -1661,7 +1673,7 @@ $('formUtente').addEventListener('submit', async e => {
     await setDoc(doc(db, 'utenti', cred.user.uid), { nome, codice, ruolo, attivo: true, creatoIl: serverTimestamp(), creatoDa: stato.utente.nome });
     await signOut(auth2);
     $('formUtente').reset();
-    await finestra('Utente creato', `<p><b>${esc(nome)}</b> può entrare con:</p><p>Codice utente: <b>${esc(codice)}</b><br>Password: <b>${esc(password)}</b></p><p>Comunicaglieli di persona.</p>`);
+    await finestra('Utente creato', `<p><b>${esc(nome)}</b> può entrare con:</p><p>Nome e cognome: <b>${esc(nome)}</b><br>PIN: <b>${esc(password)}</b></p><p>Comunicaglieli di persona.</p>`);
   } catch (err) {
     avviso(messaggioErrore(err), 'errore');
   } finally {

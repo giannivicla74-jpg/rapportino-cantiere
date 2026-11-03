@@ -49,13 +49,14 @@
         </div>
       </div>
       <label class="campo">
-        <span>Codice utente</span>
-        <input id="loginCodice" name="username" autocomplete="username" autocapitalize="none" spellcheck="false" required>
+        <span>Nome e cognome</span>
+        <input id="loginCodice" name="username" autocomplete="username" autocapitalize="words" spellcheck="false" placeholder="es. Mario Rossi" required>
       </label>
       <label class="campo">
-        <span>Password</span>
-        <input id="loginPassword" name="password" type="password" autocomplete="current-password" required>
+        <span>PIN</span>
+        <input id="loginPassword" name="password" type="password" inputmode="numeric" autocomplete="current-password" required>
       </label>
+      <button type="button" class="link piccolo-link" id="btnPinLettere">Il tuo vecchio accesso ha una password con lettere?</button>
       <button class="btn primario grande" type="submit" id="btnLogin">Entra</button>
       <p class="errore" id="loginErrore" hidden></p>
       <button type="button" class="link" id="btnApriSetup" hidden>Prima configurazione (solo la prima volta)</button>
@@ -302,8 +303,7 @@
             <h3>Nuovo utente</h3>
             <div class="griglia-4">
               <label class="campo"><span>Nome e cognome</span><input id="nuNome" required></label>
-              <label class="campo"><span>Codice utente</span><input id="nuCodice" autocapitalize="none" spellcheck="false" required></label>
-              <label class="campo"><span>Password (min. 6)</span><input id="nuPassword" minlength="6" required autocomplete="off"></label>
+              <label class="campo"><span>PIN (6 cifre)</span><input id="nuPassword" inputmode="numeric" maxlength="6" required autocomplete="off"></label>
               <label class="campo"><span>Ruolo</span>
                 <select id="nuRuolo">
                   <option value="caposquadra">Caposquadra</option>
@@ -312,7 +312,7 @@
               </label>
             </div>
             <button class="btn primario" type="submit" id="btnCreaUtente">Crea utente</button>
-            <p class="aiuto">Comunica tu al caposquadra codice e password. Per cambiare password: disattiva l'utente e creane uno nuovo.</p>
+            <p class="aiuto">Si entra scrivendo nome e cognome come li hai scritti qui (maiuscole e accenti non contano) e il PIN. Comunicali tu di persona. Per cambiare PIN: elimina l'utente e crealo di nuovo aggiungendo, per esempio, la seconda iniziale.</p>
           </form>
         </div>
 
