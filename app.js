@@ -130,15 +130,7 @@ function aggiornaTestate() {
   document.querySelectorAll('.testata-pos').forEach(el => { el.innerHTML = testataModulo(Number(el.dataset.pagina)); });
 }
 aggiornaTestate();
-$('versioneApp').textContent = `Versione ${self.APP_VERSION} del ${self.APP_VERSION_DATE} · Novità`;
-$('versioneApp').onclick = () => finestra('Novità delle versioni', `
-  <div class="firma-brand piccola">
-    <img src="icons/gc-codelab.png" alt="GC-CodeLab" width="52" height="32">
-    <div><div class="brand-nome">GC-CodeLab</div><div class="brand-motto">Development | Innovation | Solution</div>
-      <div class="brand-autore">Sviluppato da Giovanni Cavallo</div></div>
-  </div>` + (self.APP_STORICO || []).map(v => `
-  <h3>Versione ${esc(v.versione)} <span class="aiuto">del ${esc(v.data)}</span></h3>
-  <ul>${v.novita.map(n => `<li>${esc(n)}</li>`).join('')}</ul>`).join(''));
+$('versioneApp').textContent = `Versione ${self.APP_VERSION} del ${self.APP_VERSION_DATE}`;
 // Aggiornamenti: il service worker controlla se c'è una versione nuova ogni volta che l'app torna in primo piano
 // (l'app installata sul telefono spesso non si chiude davvero) e ogni 30 minuti. Quando la versione nuova è pronta
 // compare una barra con "Aggiorna": niente ricarica automatica, per non perdere ore che si stanno scrivendo.
