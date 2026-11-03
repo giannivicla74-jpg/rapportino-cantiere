@@ -2,6 +2,10 @@
 // La usano la scritta in fondo alla pagina (con l'elenco "Novità") e il service worker (sw.js)
 // per scaricare la versione nuova.
 self.APP_STORICO = [
+  { versione: '2.8', data: '03/11/2026', novita: [
+    'Schermata di accesso: tolto il collegamento \"Prima configurazione\" (nessuno lo vede più)',
+    'La prima configurazione era già bloccata dal database dopo la prima volta; ora non compare nemmeno'
+  ] },
   { versione: '2.7', data: '03/11/2026', novita: [
     'Elenchi e utenti: nuovo tasto \"Elimina\" accanto a Disattiva / Riattiva',
     'L\'utente eliminato sparisce dall\'elenco e non può più entrare; i rapportini che ha inviato restano',

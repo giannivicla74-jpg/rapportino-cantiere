@@ -278,7 +278,10 @@ $('formLogin').addEventListener('submit', async e => {
   }
 });
 
-$('btnApriSetup').onclick = () => { $('formLogin').hidden = true; $('formSetup').hidden = false; };
+// Il collegamento "Prima configurazione" è nascosto: compare solo aprendo l'indirizzo con ?configura
+// (oltre alla regola del database che rifiuta una seconda configurazione).
+$('btnApriSetup').hidden = !(EMULATORE || new URLSearchParams(location.search).has('configura'));
+$('btnApriSetup').onclick =() => { $('formLogin').hidden = true; $('formSetup').hidden = false; };
 $('btnChiudiSetup').onclick = () => { $('formSetup').hidden = true; $('formLogin').hidden = false; };
 
 // Prima configurazione: crea l'account e, nello stesso momento, il profilo responsabile e il segno "setup fatto".
