@@ -250,6 +250,9 @@ table.tab { border-collapse: collapse; width: 100%; font-size: .92rem; }
 .modulo {
   --carta: #ffffff; --testo: #111111; --testo-tenue: #555b63; --bordo: #9aa3ad; --bordo-forte: #111111;
   --evidenza: #eef2f8; --inchiostro: #1a3fa0; --fascia: #e4e4e4;
+  /* colori chiari anche con il tema scuro: il modulo è un foglio bianco (messaggi e tasti leggibili) */
+  --primario: #1f3a5f; --ok: #1e7a46; --ok-sfondo: #e3f4ea;
+  --pericolo: #b3261e; --pericolo-sfondo: #fbe9e7; --attenzione-sfondo: #fff4d6;
   color-scheme: light;
   background: #fff; color: #111; border: 1px solid #111; padding: 12px; margin: 0 auto 18px; max-width: 920px;
   box-shadow: 0 2px 10px rgba(0, 0, 0, .18); font-family: Arial, Helvetica, sans-serif;

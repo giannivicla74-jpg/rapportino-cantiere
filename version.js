@@ -2,6 +2,10 @@
 // La usano la scritta in fondo alla pagina (con l'elenco "Novità") e il service worker (sw.js)
 // per scaricare la versione nuova.
 self.APP_STORICO = [
+  { versione: '3.0', data: '03/11/2026', novita: [
+    'Tema scuro: nella pagina 2 i messaggi rossi e gialli (es. \"Senza ore\") e i tasti ora si leggono bene',
+    'Dentro il modulo bianco si usano sempre i colori del foglio chiaro'
+  ] },
   { versione: '2.9', data: '03/11/2026', novita: [
     '\"Elenchi e utenti\" lo vede e lo usa solo lo sviluppatore (Giovanni Cavallo)',
     'Gli altri responsabili ricevono, completano, convalidano e scrivono su Excel come prima',
