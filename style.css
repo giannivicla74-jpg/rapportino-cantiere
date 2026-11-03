@@ -273,6 +273,22 @@ table.tab { border-collapse: collapse; width: 100%; font-size: .92rem; }
 .t-griglia div:nth-child(4n) { border-right: 0; }
 .t-griglia div:nth-child(n+5) { border-bottom: 0; }
 @media (min-width: 640px) { .t-sede { font-size: .8rem; } .t-griglia { font-size: .78rem; } .t-sotto { font-size: .9rem; } }
+/* intestazione grafica 2025 (Edizione 02) */
+.t2 .t2-alto { display: grid; grid-template-columns: 30% 70%; border-bottom: 1px solid #111; }
+.t2 .t-logo img { max-width: 260px; }
+.t2-dati { display: flex; flex-direction: column; font-size: .56rem; line-height: 1.35; text-align: center; }
+.t2-rs { font-weight: 700; font-size: .78rem; padding: 3px 4px; border-bottom: 1px solid #111; }
+.t2-sedi { display: grid; grid-template-columns: 1fr 1fr; border-bottom: 1px solid #111; }
+.t2-sedi div { padding: 2px 4px; }
+.t2-sedi div:first-child { border-right: 1px solid #111; }
+.t2-fisc { padding: 2px 4px; flex: 1; display: flex; flex-direction: column; justify-content: center; }
+.t2 .t-titolo { text-transform: none; }
+.t2-id, .t2-norme { display: grid; font-size: .56rem; text-align: center; }
+.t2-id { grid-template-columns: 1.35fr 1fr 1fr 1fr 1fr; border-bottom: 1px solid #111; }
+.t2-norme { grid-template-columns: 1fr 1fr 1fr 1fr; }
+.t2-id div, .t2-norme div { padding: 2px 3px; border-right: 1px solid #111; }
+.t2-id div:last-child, .t2-norme div:last-child { border-right: 0; }
+@media (min-width: 640px) { .t2-dati { font-size: .78rem; } .t2-rs { font-size: 1rem; } .t2-id, .t2-norme { font-size: .78rem; } }
 
 /* riquadri con etichette in corsivo come sulla carta */
 .riquadro { border: 2px solid #111; margin-top: 10px; }
@@ -410,6 +426,7 @@ button.o-p { cursor: pointer; -webkit-tap-highlight-color: transparent; }
   .affiancati .t-sede { font-size: .68rem; }
   .affiancati .t-titolo { font-size: .9rem; }
   .affiancati .t-griglia { font-size: .64rem; }
+  .affiancati .t2-dati, .affiancati .t2-id, .affiancati .t2-norme { font-size: .64rem; } .affiancati .t2-rs { font-size: .85rem; }
   .affiancati .o-nome { font-size: .92rem; min-height: 38px; }
   .affiancati .operaio.testa .o-ora { font-size: .62rem; }
   /* pagina 2 compatta: caselle ore più piccole */
@@ -532,6 +549,7 @@ button.o-p { cursor: pointer; -webkit-tap-highlight-color: transparent; }
   .stampa .o-nome { min-height: 22px !important; padding: 1px 6px !important; font-size: 11px; }
   .stampa .casella-p::after { font-size: 15px; }
   .stampa .t-sede { font-size: 8px; } .stampa .t-titolo { font-size: 11px; } .stampa .t-griglia { font-size: 8px; }
+  .stampa .t2-dati, .stampa .t2-id, .stampa .t2-norme { font-size: 8px; } .stampa .t2-rs { font-size: 11px; }
   .stampa .t-logo img { max-width: 220px; }
   .stampa .r-et { font-size: 12px; } .stampa .riquadro input, .stampa .r-valore { font-size: 11px; }
   .stampa .riquadro { margin-top: 6px; }

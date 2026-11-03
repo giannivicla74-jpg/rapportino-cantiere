@@ -92,24 +92,62 @@ function messaggioErrore(err) {
 // ---------------------------------------------------------------- avvio
 // Intestazione come sul modulo cartaceo (pagina 1 completa, pagina 2 solo la riga di identificazione).
 // I testi e il logo si cambiano in "Elenchi e utenti > Intestazione del modulo"; questi sono i valori di partenza.
+// Grafica 2025 (Edizione 02): ragione sociale, due sedi, dati fiscali e contatti; 5 caselle nella riga di identificazione.
 const INTESTAZIONE_BASE = {
-  sedeLegale: 'Sede legale: Viale Michelangelo n. 33 – 80127 Napoli (NA)',
-  sedeOperativa: 'Sede operativa: Strada Consortile SNC - 81032 Carinaro (CE)',
-  telefono: 'Tel. e Fax 081/502.97.30',
-  sito: 'www.vicla.it',
-  titolo: 'MODELLO DEL SISTEMA DI GESTIONE INTEGRATO QUALITA’, AMBIENTE E SICUREZZA',
-  sottotitolo: 'RAPPORTO DI CANTIERE',
+  ragioneSociale: 'VI.CLA. FUTURE S.r.l.',
+  sedeLegale: 'Viale Michelangelo n. 33 – 80129 Napoli (Na) - Italia',
+  sedeAmministrativa: 'Strada Consortile snc - 81032 Carinaro (CE) - Italia',
+  datiFiscali: 'P.IVA/C.F./n° di Iscrizione C.C.I.A.A. di Napoli: 05485601214 - R.E.A. NA-756780',
+  telefono: 'Tel +39 081 3041343 - Fax +39 081 5029730',
+  contatti: 'e-mail: info@vicla.it - web: www.vicla.it - pec: info@pec.vicla.it',
+  titolo: 'MODELLO del SISTEMA di GESTIONE INTEGRATO QUALITÀ, AMBIENTE, SALUTE e SICUREZZA',
+  sottotitolo: 'RAPPORTO DI LAVORO',
   identificazione: 'Mod. 22.03',
-  revisione: '03',
-  dataRevisione: '08/01/2016',
+  edizione: '02',
+  revisione: '00',
+  dataRevisione: '07/04/2025',
   norma1: 'UNI EN ISO 9001:2015',
   norma2: 'UNI EN ISO 14001:2015',
-  norma3: 'BS OHSAS 18001:2007'
+  norma3: 'UNI ISO 45001:2018'
 };
 const LOGO_BASE = 'icons/logo-vicla.png';
 let intestazione = { ...INTESTAZIONE_BASE, logo: '' };
+// Intestazione di un rapportino: quella salvata al momento dell'invio (anche nella grafica vecchia), altrimenti l'attuale
+const intestazioneDi = r => (r.intestazione ? { logo: intestazione.logo, ...r.intestazione } : intestazione);
 
 function testataModulo(pagina, t = intestazione) {
+  return t.ragioneSociale ? testataNuova(pagina, t) : testataVecchia(pagina, t);
+}
+function logoDi(t) {
+  // il logo è un'immagine caricata dall'ufficio (data:image/...) oppure quello originale dell'app
+  return /^data:image\/(png|jpeg|webp);base64,/.test(t.logo || '') ? t.logo : LOGO_BASE;
+}
+function testataNuova(pagina, t) {
+  const righe = `<div class="t2-id">
+      <div>Identificazione: ${esc(t.identificazione)}</div><div>Edizione: ${esc(t.edizione)}</div><div>Revisione.: ${esc(t.revisione)}</div>
+      <div>Data: ${esc(t.dataRevisione)}</div><div>Pagina ${pagina} di 2</div>
+    </div>
+    <div class="t2-norme"><div>Rif. Norme</div><div>${esc(t.norma1)}</div><div>${esc(t.norma2)}</div><div>${esc(t.norma3)}</div></div>`;
+  if (pagina === 2) return `<div class="testata t2">${righe}</div>`;
+  return `<div class="testata t2">
+    <div class="t2-alto">
+      <div class="t-logo"><img src="${logoDi(t)}" alt="Logo"></div>
+      <div class="t2-dati">
+        <div class="t2-rs">${esc(t.ragioneSociale)}</div>
+        <div class="t2-sedi">
+          <div>Sede legale:<br>${esc(t.sedeLegale)}</div>
+          <div>Sede Amministrativa:<br>${esc(t.sedeAmministrativa)}</div>
+        </div>
+        <div class="t2-fisc">${[t.datiFiscali, t.telefono, t.contatti].filter(Boolean).map(r => `<div>${esc(r)}</div>`).join('')}</div>
+      </div>
+    </div>
+    <div class="t-titolo">${esc(t.titolo)}</div>
+    <div class="t-sotto">${esc(t.sottotitolo)}</div>
+    ${righe}
+  </div>`;
+}
+// Grafica precedente (Revisione 03 del 2016): resta per i rapportini inviati prima dell'aggiornamento
+function testataVecchia(pagina, t) {
   const griglia = `<div class="t-griglia">
       <div>Identificazione: ${esc(t.identificazione)}</div><div>Revisione: ${esc(t.revisione)}</div><div>Data: ${esc(t.dataRevisione)}</div><div>Pagina ${pagina} di 2</div>
       <div>Rif. Norme</div><div>${esc(t.norma1)}</div><div>${esc(t.norma2)}</div><div>${esc(t.norma3)}</div>
@@ -414,7 +452,9 @@ function avviaCompilazione() {
   stato.annulla.push(offM);
   // intestazione del modulo (testi e logo): la decide l'ufficio
   const offI = onSnapshot(doc(db, 'elenchi', 'intestazione'), snap => {
-    intestazione = { ...INTESTAZIONE_BASE, logo: '', ...(snap.exists() ? snap.data() : {}) };
+    // un'intestazione salvata con la grafica vecchia (senza ragione sociale) non vale più: si usa la nuova, tenendo il logo
+    const salvata = snap.exists() ? snap.data() : {};
+    intestazione = salvata.ragioneSociale ? { ...INTESTAZIONE_BASE, logo: '', ...salvata } : { ...INTESTAZIONE_BASE, logo: salvata.logo || '' };
     aggiornaTestate();
     disegnaGestioneIntestazione();
   }, () => {});
@@ -944,7 +984,7 @@ function disegnaFronte(r) {
   const val = v => esc(v) || '&nbsp;';
   const testo = v => `<div class="r-valore testo">${val(v)}</div>`;
   $('dettaglioFronte').innerHTML = `
-    ${testataModulo(1, { ...intestazione, ...(r.intestazione || {}) })}
+    ${testataModulo(1, intestazioneDi(r))}
     <div class="riquadro">
       <div class="r-riga">
         <div class="r-cella largo"><span class="r-et">COMMESSA:</span><div class="r-valore">${val(r.commessa)}</div></div>
@@ -1291,7 +1331,7 @@ function stampaRetro(r) {
       </table>
     </div>`;
   }).join('');
-  return `<section class="stampa-pagina modulo stampa-retro">${testataModulo(2, { ...intestazione, ...(r.intestazione || {}) })}${blocchi}</section>`;
+  return `<section class="stampa-pagina modulo stampa-retro">${testataModulo(2, intestazioneDi(r))}${blocchi}</section>`;
 }
 
 $('btnStampa').onclick = () => {
@@ -1531,9 +1571,10 @@ $('btnAggiornaElenchi').onclick = async () => {
 
 // ---------------------------------------------------------------- intestazione del modulo
 const ETICHETTE_INTESTAZIONE = {
-  sedeLegale: 'Sede legale', sedeOperativa: 'Sede operativa', telefono: 'Telefono e fax', sito: 'Sito internet',
-  titolo: 'Titolo', sottotitolo: 'Sottotitolo', identificazione: 'Identificazione (es. Mod. 22.03)', revisione: 'Revisione',
-  dataRevisione: 'Data della revisione', norma1: 'Norma 1', norma2: 'Norma 2', norma3: 'Norma 3'
+  ragioneSociale: 'Ragione sociale', sedeLegale: 'Sede legale', sedeAmministrativa: 'Sede amministrativa',
+  datiFiscali: 'P.IVA / C.C.I.A.A. / R.E.A.', telefono: 'Telefono e fax', contatti: 'E-mail, web e PEC',
+  titolo: 'Titolo', sottotitolo: 'Sottotitolo', identificazione: 'Identificazione (es. Mod. 22.03)', edizione: 'Edizione',
+  revisione: 'Revisione', dataRevisione: 'Data', norma1: 'Norma 1', norma2: 'Norma 2', norma3: 'Norma 3'
 };
 let logoInModifica = null;      // logo scelto ma non ancora salvato ('' = logo originale)
 let intestazioneToccata = false; // il responsabile sta scrivendo: non sovrascrivere i suoi campi
@@ -1860,6 +1901,7 @@ if (EMULATORE) {
     modificaRapportino: async (id, campi) => updateDoc(doc(db, 'rapportini', id), campi),
     scriviElenchi: async () => setDoc(doc(db, 'elenchi', 'automezzi'), { voci: ['PROVA'] }).then(() => 'scritto', e => e.code),
     modificaUtente: async uid => updateDoc(doc(db, 'utenti', uid), { attivo: false }).then(() => 'scritto', e => e.code),
-    leggiPin: async () => getDocs(collection(db, 'accessi')).then(s => 'letti ' + s.size, e => e.code)
+    leggiPin: async () => getDocs(collection(db, 'accessi')).then(s => 'letti ' + s.size, e => e.code),
+    testata: (pagina, t) => testataModulo(pagina, t)
   };
 }
