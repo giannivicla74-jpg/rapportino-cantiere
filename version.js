@@ -2,6 +2,9 @@
 // La usano la scritta in fondo alla pagina (con l'elenco "Novità") e il service worker (sw.js)
 // per scaricare la versione nuova.
 self.APP_STORICO = [
+  { versione: '0.7', data: '03/11/2026', novita: [
+    'Logo Vi.Cla. Future originale, nitido, al posto di quello ritagliato dalla scansione'
+  ] },
   { versione: '0.6', data: '03/11/2026', novita: [
     'Intestazione del modulo modificabile dall\'ufficio: sedi, telefono, sito, titolo, revisione, data e norme',
     'Si può cambiare il logo (e tornare a quello originale)',
