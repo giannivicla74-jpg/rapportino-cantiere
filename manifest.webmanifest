@@ -1,7 +1,7 @@
 {
   "name": "Rapportino di Cantiere",
   "short_name": "Rapportino",
-  "description": "Rapportino di cantiere digitale (Mod. 22.03): compilazione dal telefono e scrittura delle presenze su Excel",
+  "description": "Rapportino di cantiere digitale (Mod. 22.03): compilazione dal telefono e scrittura delle presenze su Excel. Sviluppato da Giovanni Cavallo · GC-CodeLab",
   "lang": "it",
   "start_url": "./",
   "scope": "./",

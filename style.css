@@ -522,3 +522,22 @@ button.o-p { cursor: pointer; -webkit-tap-highlight-color: transparent; }
   .o-nome { min-height: 40px; }
   .o-ora input { min-height: 34px; }
 }
+
+/* ============================================================
+   BRAND GC-CodeLab (firma dello sviluppatore): blu del marchio e motto
+   ============================================================ */
+:root { --gc-blu: #163470; --gc-rame: #b87333; }
+@media (prefers-color-scheme: dark) { :root { --gc-blu: #8fb0ee; --gc-rame: #e0a46a; } }
+.firma-brand { display: flex; align-items: center; gap: 12px; margin-top: 6px; color: var(--gc-blu); }
+.firma-brand img { width: 64px; height: auto; flex: none; }
+@media (prefers-color-scheme: dark) { .firma-brand img, .brand-piccolo img { filter: brightness(1.9) saturate(.7); } }
+.brand-nome { font-weight: 800; font-size: 1.15rem; letter-spacing: .02em; line-height: 1.1; }
+.brand-motto { font-size: .68rem; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--gc-rame); }
+.brand-autore { font-size: .8rem; color: var(--testo-tenue); }
+.firma-brand.piccola { padding-bottom: 10px; margin-bottom: 4px; border-bottom: 1px solid var(--bordo); }
+.firma-brand.piccola img { width: 52px; }
+.piede { display: flex; flex-wrap: wrap; gap: 6px 14px; align-items: center; justify-content: center; margin-top: 24px; font-size: .8rem; color: var(--testo-tenue); }
+.brand-piccolo { display: inline-flex; align-items: center; gap: 6px; }
+.brand-piccolo b { color: var(--gc-blu); }
+.brand-piccolo img { width: 26px; height: auto; }
+.piede .link { font-size: .8rem; color: var(--testo-tenue); }

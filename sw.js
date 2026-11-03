@@ -8,7 +8,7 @@ const CACHE = 'rapportino-' + self.APP_VERSION;
 const CACHE_LIBRERIE = 'rapportino-librerie';
 const FILES = [
   './', 'index.html', 'style.css', 'version.js', 'app.js', 'firebase-config.js', 'excel.js', 'cartella.js',
-  'manifest.webmanifest', 'libs/jszip.min.js', 'icons/icon-192.png', 'icons/icon-512.png', 'icons/icon-maskable-512.png'
+  'manifest.webmanifest', 'libs/jszip.min.js', 'icons/icon-192.png', 'icons/icon-512.png', 'icons/icon-maskable-512.png', 'icons/logo-vicla.png', 'icons/gc-codelab.png'
 ];
 
 self.addEventListener('install', event => {

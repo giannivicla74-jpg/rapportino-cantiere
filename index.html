@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <title>Rapportino di Cantiere</title>
   <meta name="description" content="Rapportino di cantiere digitale (Mod. 22.03): il caposquadra lo compila e lo invia, il responsabile lo completa e lo scrive su Excel">
+  <meta name="author" content="Giovanni Cavallo · GC-CodeLab">
   <meta name="theme-color" content="#1f3a5f">
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" href="icons/icon-192.png">
@@ -65,6 +66,16 @@
       <p class="errore" id="setupErrore" hidden></p>
       <button type="button" class="link" id="btnChiudiSetup">Torna all'accesso</button>
     </form>
+
+    <!-- Firma dello sviluppatore -->
+    <div class="firma-brand">
+      <img src="icons/gc-codelab.png" alt="GC-CodeLab" width="64" height="40">
+      <div>
+        <div class="brand-nome">GC-CodeLab</div>
+        <div class="brand-motto">Development | Innovation | Solution</div>
+        <div class="brand-autore">Sviluppato da Giovanni Cavallo</div>
+      </div>
+    </div>
   </section>
 
   <!-- ===================== UTENTE NON ABILITATO ===================== -->
@@ -312,7 +323,10 @@
         </div>
       </div>
 
-      <p class="versione"><button class="link" id="versioneApp" type="button"></button></p>
+      <div class="piede">
+        <span class="brand-piccolo"><img src="icons/gc-codelab.png" alt="" width="26" height="16">Sviluppato da <b>GC-CodeLab</b></span>
+        <button class="link" id="versioneApp" type="button"></button>
+      </div>
     </main>
   </section>
 

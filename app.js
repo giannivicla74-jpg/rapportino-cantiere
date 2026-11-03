@@ -131,7 +131,12 @@ function aggiornaTestate() {
 }
 aggiornaTestate();
 $('versioneApp').textContent = `Versione ${self.APP_VERSION} del ${self.APP_VERSION_DATE} · Novità`;
-$('versioneApp').onclick = () => finestra('Novità delle versioni', (self.APP_STORICO || []).map(v => `
+$('versioneApp').onclick = () => finestra('Novità delle versioni', `
+  <div class="firma-brand piccola">
+    <img src="icons/gc-codelab.png" alt="GC-CodeLab" width="52" height="32">
+    <div><div class="brand-nome">GC-CodeLab</div><div class="brand-motto">Development | Innovation | Solution</div>
+      <div class="brand-autore">Sviluppato da Giovanni Cavallo</div></div>
+  </div>` + (self.APP_STORICO || []).map(v => `
   <h3>Versione ${esc(v.versione)} <span class="aiuto">del ${esc(v.data)}</span></h3>
   <ul>${v.novita.map(n => `<li>${esc(n)}</li>`).join('')}</ul>`).join(''));
 // Aggiornamenti: il service worker controlla se c'è una versione nuova ogni volta che l'app torna in primo piano

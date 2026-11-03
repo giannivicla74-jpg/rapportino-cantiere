@@ -2,6 +2,11 @@
 // La usano la scritta in fondo alla pagina (con l'elenco "Novità") e il service worker (sw.js)
 // per scaricare la versione nuova.
 self.APP_STORICO = [
+  { versione: '2.2', data: '03/11/2026', novita: [
+    'Brand GC-CodeLab: marchio, motto \"Development | Innovation | Solution\" e \"Sviluppato da Giovanni Cavallo\"',
+    'La firma compare nella schermata di accesso, in fondo alle pagine e nelle Novità',
+    'Il modulo Vi.Cla. Future e la stampa restano con il solo marchio dell\'azienda'
+  ] },
   { versione: '2.1', data: '03/11/2026', novita: [
     'Sul telefono l\'app installata si apre in orizzontale: tabella operai completa come sul foglio',
     'Nel browser, con il telefono in verticale, compare l\'avviso \"Gira il telefono\" (si può chiudere)',
