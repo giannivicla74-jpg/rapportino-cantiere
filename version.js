@@ -2,6 +2,11 @@
 // La usano la scritta in fondo alla pagina (con l'elenco "Novità") e il service worker (sw.js)
 // per scaricare la versione nuova.
 self.APP_STORICO = [
+  { versione: '1.7', data: '03/11/2026', novita: [
+    'Elenco Convalidati: spunta verde \"Scritto in Excel\" con file e giorno (bordo verde a sinistra)',
+    'Se un rapportino non risulta scritto compare \"Non scritto in Excel\" in rosso',
+    'Nel conteggio degli operai si tiene conto delle correzioni dell\'ufficio'
+  ] },
   { versione: '1.6', data: '03/11/2026', novita: [
     'Sotto \"Convalida\" si vede sempre in quale cartella scriverà l\'app e quali file Excel contiene',
     'Prima di ogni scrittura l\'app rilegge la cartella collegata (se è stata cambiata usa quella nuova)',

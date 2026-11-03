@@ -432,3 +432,9 @@ button.o-p { cursor: pointer; -webkit-tap-highlight-color: transparent; }
 
 /* sotto "Convalida": dove scriverà l'app */
 .info-scrittura { margin: 10px 0 0; padding: 8px 12px; border-radius: 8px; background: var(--evidenza); font-size: .88rem; text-align: right; }
+
+/* elenco convalidati: spunta "scritto in Excel" */
+.voce.scritta { border-left: 5px solid var(--ok); }
+.spunta-excel { margin-top: 4px; font-size: .85rem; font-weight: 600; color: var(--ok); display: flex; align-items: center; gap: 6px; overflow-wrap: anywhere; }
+.spunta-excel .spunta { display: inline-grid; place-items: center; width: 20px; height: 20px; border-radius: 50%; background: var(--ok); color: #fff; font-size: .8rem; flex: none; }
+.spunta-excel.no { color: var(--pericolo); }

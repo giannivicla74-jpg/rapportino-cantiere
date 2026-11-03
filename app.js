@@ -624,13 +624,21 @@ function avviaResponsabile() {
 }
 
 function voceRapportino(r) {
-  const extra = r.stato === 'convalidato'
+  const conv = r.stato === 'convalidato';
+  const extra = conv
     ? `<span class="etichetta ok">Convalidato ${esc(dataOraIT(r.convalidatoIl))}</span>`
     : `<span class="etichetta">Inviato ${esc(dataOraIT(r.inviatoIl))}</span>`;
-  return `<button class="voce" data-id="${esc(r.id)}">
+  // spunta "scritto in Excel" con file e giorno (dal salvataggio della convalida)
+  const giorno = r.giornoExcel || Number(String(r.data || '').slice(8, 10));
+  const excel = !conv ? '' : r.fileExcel
+    ? `<div class="spunta-excel" title="Cartella: ${esc(r.cartellaExcel || '')}"><span class="spunta">✓</span>Scritto in Excel · ${esc(r.fileExcel)} · giorno ${giorno}</div>`
+    : '<div class="spunta-excel no">✗ Non scritto in Excel</div>';
+  const nOperai = (r.operai?.length || 0) - (r.operaiTolti?.length || 0) + (r.operaiAggiunti?.length || 0);
+  return `<button class="voce ${conv && r.fileExcel ? 'scritta' : ''}" data-id="${esc(r.id)}">
     <div class="voce-princ">
       <div class="voce-titolo">${esc(dataIT(r.data))} · ${esc(r.commessa)}${r.localita ? ` · ${esc(r.localita)}` : ''}</div>
-      <div class="voce-sotto">Caposquadra ${esc(r.caposquadraNome)} · ${r.operai?.length || 0} operai</div>
+      <div class="voce-sotto">Caposquadra ${esc(r.caposquadraNome)} · ${nOperai} operai${r.correttoDaNome ? ' · corretto dall\'ufficio' : ''}</div>
+      ${excel}
     </div>${extra}</button>`;
 }
 
