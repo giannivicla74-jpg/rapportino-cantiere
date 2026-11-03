@@ -39,8 +39,13 @@ self.addEventListener('fetch', event => {
   }
 
   if (url.origin !== self.location.origin) return;
+  // "no-cache": chiede sempre al server se il file è cambiato (GitHub Pages altrimenti fa usare
+  // per 10 minuti la copia già scaricata, e il telefono resta sulla versione vecchia)
+  const fresca = req.mode === 'navigate'
+    ? new Request(req.url, { cache: 'no-cache', credentials: 'same-origin' })
+    : new Request(req, { cache: 'no-cache' });
   event.respondWith(
-    fetch(req)
+    fetch(fresca)
       .then(res => {
         const copy = res.clone();
         caches.open(CACHE).then(cache => cache.put(req, copy));

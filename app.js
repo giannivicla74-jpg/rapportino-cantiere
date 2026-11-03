@@ -134,8 +134,26 @@ $('versioneApp').textContent = `Versione ${self.APP_VERSION} del ${self.APP_VERS
 $('versioneApp').onclick = () => finestra('Novità delle versioni', (self.APP_STORICO || []).map(v => `
   <h3>Versione ${esc(v.versione)} <span class="aiuto">del ${esc(v.data)}</span></h3>
   <ul>${v.novita.map(n => `<li>${esc(n)}</li>`).join('')}</ul>`).join(''));
+// Aggiornamenti: il service worker controlla se c'è una versione nuova ogni volta che l'app torna in primo piano
+// (l'app installata sul telefono spesso non si chiude davvero) e ogni 30 minuti. Quando la versione nuova è pronta
+// compare una barra con "Aggiorna": niente ricarica automatica, per non perdere ore che si stanno scrivendo.
 if ('serviceWorker' in navigator && location.protocol !== 'file:') {
-  navigator.serviceWorker.register('sw.js').catch(() => {});
+  const avevaControllo = !!navigator.serviceWorker.controller; // false alla primissima installazione
+  navigator.serviceWorker.register('sw.js', { updateViaCache: 'none' }).then(reg => {
+    const controlla = () => reg.update().catch(() => {});
+    document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') controlla(); });
+    setInterval(controlla, 30 * 60 * 1000);
+  }).catch(() => {});
+  navigator.serviceWorker.addEventListener('controllerchange', () => { if (avevaControllo) mostraAggiornamento(); });
+}
+function mostraAggiornamento() {
+  if (document.getElementById('barraAggiorna')) return;
+  const barra = document.createElement('div');
+  barra.id = 'barraAggiorna';
+  barra.className = 'barra-aggiorna';
+  barra.innerHTML = '<span>È disponibile la versione nuova dell\'app.</span><button class="btn primario piccolo" type="button">Aggiorna</button>';
+  barra.querySelector('button').onclick = () => location.reload();
+  document.body.appendChild(barra);
 }
 
 // Prove sul PC: con l'indirizzo http://localhost:...?emulatore l'app usa il simulatore di Firebase

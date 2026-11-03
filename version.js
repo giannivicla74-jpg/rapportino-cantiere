@@ -2,6 +2,10 @@
 // La usano la scritta in fondo alla pagina (con l'elenco "Novità") e il service worker (sw.js)
 // per scaricare la versione nuova.
 self.APP_STORICO = [
+  { versione: '1.4', data: '03/11/2026', novita: [
+    'Aggiornamenti più rapidi sul telefono: l\'app controlla la versione nuova ogni volta che torna in primo piano',
+    'Quando c\'è una versione nuova compare la barra \"Aggiorna\"'
+  ] },
   { versione: '1.3', data: '03/11/2026', novita: [
     'Il responsabile corregge gli errori del caposquadra nella pagina 1: togli (riga barrata) o rimetti un operaio',
     'Operaio dimenticato: si aggiunge anche dalla pagina 1 e compare in fondo alla tabella',
