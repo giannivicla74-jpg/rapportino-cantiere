@@ -149,7 +149,7 @@ input[readonly] { background: var(--evidenza); }
 .conta.zero { opacity: .5; }
 
 .avviso { background: var(--attenzione-sfondo); padding: 10px 16px; display: flex; flex-wrap: wrap; gap: 10px; align-items: center; justify-content: space-between; }
-.contenuto { max-width: 1100px; margin: 0 auto; padding: 16px; padding-bottom: 48px; }
+.contenuto { max-width: 1100px; margin: 0 auto; padding: 16px; padding-bottom: 10px; }
 
 /* ---------- foglio (modulo) ---------- */
 .foglio {
@@ -403,7 +403,7 @@ button.o-p { cursor: pointer; -webkit-tap-highlight-color: transparent; }
   .affiancati { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 14px; align-items: start; }
   .affiancati > .modulo {
     max-width: none; margin: 0; position: sticky; top: 64px;
-    max-height: calc(100vh - 80px); max-height: calc(100dvh - 80px); overflow: auto; overscroll-behavior: contain;
+    max-height: calc(100vh - 118px); max-height: calc(100dvh - 118px); overflow: auto; overscroll-behavior: contain;
   }
   /* metà schermo: la tabella operai della pagina 1 in forma compatta come sul telefono, ma con gli orari in riga */
   .affiancati .tab-operai .operaio { grid-template-columns: minmax(150px, 2fr) 40px minmax(0, 1fr) minmax(0, 1.7fr) minmax(0, 1fr); }
@@ -546,7 +546,7 @@ button.o-p { cursor: pointer; -webkit-tap-highlight-color: transparent; }
   .barra-utente { display: none; }
   .schede { order: 0; width: auto; }
   .scheda-btn { padding: 6px 10px; }
-  .contenuto { padding: 8px 12px 40px; }
+  .contenuto { padding: 8px 12px 10px; }
   .modulo { padding: 8px; }
   /* righe della tabella più basse: entrano più operai nello schermo */
   .o-nome { min-height: 40px; }
@@ -566,7 +566,8 @@ button.o-p { cursor: pointer; -webkit-tap-highlight-color: transparent; }
 .brand-autore { font-size: .8rem; color: var(--testo-tenue); }
 .firma-brand.piccola { padding-bottom: 10px; margin-bottom: 4px; border-bottom: 1px solid var(--bordo); }
 .firma-brand.piccola img { width: 52px; }
-.piede { display: flex; flex-wrap: wrap; gap: 6px 14px; align-items: center; justify-content: center; margin-top: 24px; font-size: .8rem; color: var(--testo-tenue); }
+.piede { display: flex; flex-wrap: wrap; gap: 4px 14px; align-items: baseline; justify-content: center; margin-top: 10px; font-size: .8rem; line-height: 1.4; color: var(--testo-tenue); }
+.piede #versioneApp { font-size: .8rem; line-height: 1.5; }
 .brand-piccolo { display: inline-flex; align-items: center; gap: 6px; }
 .brand-piccolo b { color: var(--gc-blu); }
 .brand-piccolo img { width: 26px; height: auto; }
