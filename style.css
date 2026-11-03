@@ -623,3 +623,4 @@ button.o-p { cursor: pointer; -webkit-tap-highlight-color: transparent; }
 .pin-attuale i { font-family: inherit; letter-spacing: 0; font-size: .82rem; color: var(--testo-tenue); }
 .pin-nuovo { width: 8.5em; padding: 6px 8px; font-family: ui-monospace, Consolas, monospace; letter-spacing: .15em; border: 1px solid var(--bordo); border-radius: 8px; background: var(--carta); color: var(--testo); }
 .btn.whatsapp { background: #1fa855; border-color: #1fa855; color: #fff; }
+.tab td.totale-turni { font-weight: 800; font-size: 1.05rem; vertical-align: middle; }

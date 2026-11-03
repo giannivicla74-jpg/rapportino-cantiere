@@ -918,7 +918,8 @@ function bloccoIniziale(r) {
   const pausa = differenzaOre(r.mensaDalle, r.mensaAlle);
   return {
     righe: [
-      { commessa: r.commessa || '', entrata: comune('dalle'), uscita: comune('alle'), pausa: pausa ? fmtOre(pausa) : '' },
+      // come sul cartaceo: entrata = partenza dal deposito, uscita = rientro in deposito (se mancano, gli orari in cantiere)
+      { commessa: r.commessa || '', entrata: comune('partenza') || comune('dalle'), uscita: comune('rientro') || comune('alle'), pausa: pausa ? fmtOre(pausa) : '' },
       { commessa: '', entrata: '', uscita: '', pausa: '' }
     ],
     ore: { t1: oreVuote(), t2: oreVuote() },
@@ -1148,7 +1149,7 @@ function disegnaBlocchi() {
       </div>
       <div class="blocco-corpo">
         <div class="tabella-scorri"><table class="tab">
-          <thead><tr><th></th><th>Commessa</th><th>Entrata</th><th>Uscita</th><th>Sub-ore</th><th>A detrarre pausa</th><th>Parziali</th></tr></thead>
+          <thead><tr><th></th><th>Commessa</th><th>Entrata</th><th>Uscita</th><th>Sub-ore</th><th>A detrarre pausa</th><th>Parziali</th><th>Totale</th></tr></thead>
           <tbody>${b.righe.map((r, t) => `<tr>
             <th>${t + 1}° turno</th>
             <td><select data-riga="${t}" data-k="commessa">${opzioniCommessa(r.commessa)}</select></td>
@@ -1157,8 +1158,8 @@ function disegnaBlocchi() {
             <td class="calc" data-calc="sub${t}"></td>
             <td><input class="ore" inputmode="decimal" data-riga="${t}" data-k="pausa" value="${esc(r.pausa)}"></td>
             <td class="calc" data-calc="parz${t}"></td>
+            ${t === 0 ? `<td class="calc totale-turni" rowspan="${b.righe.length}" data-calc="totTurni"></td>` : ''}
           </tr>`).join('')}
-          <tr><th colspan="6" style="text-align:right">Totale</th><td class="calc" data-calc="totTurni"></td></tr>
           </tbody>
         </table></div>
         <div class="blocco-sotto">
