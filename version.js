@@ -2,6 +2,9 @@
 // La usano la scritta in fondo alla pagina (con l'elenco "Novità") e il service worker (sw.js)
 // per scaricare la versione nuova.
 self.APP_STORICO = [
+  { versione: '0.9', data: '03/11/2026', novita: [
+    'Pagina 2 senza la riga di identificazione del modulo (è già nella pagina 1 accanto)'
+  ] },
   { versione: '0.8', data: '03/11/2026', novita: [
     'Sul PC il rapportino aperto mostra pagina 1 e pagina 2 una accanto all\'altra',
     'Ogni pagina scorre per conto suo: si scrivono le ore guardando presenze e orari'
