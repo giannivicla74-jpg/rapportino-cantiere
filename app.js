@@ -912,11 +912,36 @@ function differenzaOre(da, a) {
 }
 const oreVuote = () => Object.fromEntries(VOCI_ORE.map(([k]) => [k, '']));
 
+// Orario uguale per tutti gli operai del rapportino ('' se diversi o mancanti)
+const orarioComune = (r, k) => { const s = new Set((r.operai || []).map(o => o[k]).filter(Boolean)); return s.size === 1 ? [...s][0] : ''; };
+
+// Ore proposte per un turno del blocco (l'ufficio le può sempre cambiare), come sul cartaceo:
+// totale = uscita - entrata - pausa; VIAGGIO = deposito→cantiere + cantiere→deposito (solo se entrata e uscita
+// sono gli orari del deposito); il resto è Ord. D fino a 8 ore, oltre è Straord. D.
+function proponiOreTurno(b, t, r) {
+  const riga = b.righe[t];
+  const totale = differenzaOre(riga.entrata, riga.uscita) ? Math.max(0, differenzaOre(riga.entrata, riga.uscita) - num(riga.pausa)) : 0;
+  const ore = oreVuote();
+  if (totale > 0) {
+    let viaggio = 0;
+    const [p, d, a, ri] = ['partenza', 'dalle', 'alle', 'rientro'].map(k => orarioComune(r, k));
+    if (t === 0 && p && d && a && ri && riga.entrata === p && riga.uscita === ri) {
+      const v = differenzaOre(p, d) + differenzaOre(a, ri);
+      if (v > 0 && v < totale) viaggio = v;
+    }
+    const lavoro = totale - viaggio;
+    ore.or = fmtOre(Math.min(8, lavoro));
+    if (lavoro > 8) ore.sd = fmtOre(lavoro - 8);
+    if (viaggio) ore.v = fmtOre(viaggio);
+  }
+  b.ore[`t${t + 1}`] = ore;
+}
+
 function bloccoIniziale(r) {
   const tutti = (r.operai || []).map(o => o.nome);
-  const comune = k => { const s = new Set((r.operai || []).map(o => o[k]).filter(Boolean)); return s.size === 1 ? [...s][0] : ''; };
+  const comune = k => orarioComune(r, k);
   const pausa = differenzaOre(r.mensaDalle, r.mensaAlle);
-  return {
+  const b = {
     righe: [
       // come sul cartaceo: entrata = partenza dal deposito, uscita = rientro in deposito (se mancano, gli orari in cantiere)
       { commessa: r.commessa || '', entrata: comune('partenza') || comune('dalle'), uscita: comune('rientro') || comune('alle'), pausa: pausa ? fmtOre(pausa) : '' },
@@ -925,6 +950,8 @@ function bloccoIniziale(r) {
     ore: { t1: oreVuote(), t2: oreVuote() },
     operai: tutti
   };
+  proponiOreTurno(b, 0, r);
+  return b;
 }
 
 function apriRapportino(r) {
@@ -1145,6 +1172,7 @@ function disegnaBlocchi() {
     <div class="blocco" data-b="${i}">
       <div class="blocco-testa">
         <span>TURNO DI LAVORO ${blocchi.length > 1 ? i + 1 : ''}</span>
+        <button class="btn piccolo" data-azione="proponi" title="Ricalcola Ord. D, Straord. D e Viaggio da entrata, uscita e pausa">Proponi ore</button>
         ${blocchi.length > 1 ? `<button class="btn piccolo pericolo" data-azione="togli">Togli blocco</button>` : ''}
       </div>
       <div class="blocco-corpo">
@@ -1257,7 +1285,13 @@ $('blocchi').addEventListener('click', e => {
   if (az === 'togli') bl.splice(i, 1);
   if (az === 'tutti') bl[i].operai = tuttiGliOperai();
   if (az === 'nessuno') bl[i].operai = [];
+  if (az === 'proponi') {
+    // ricalcola le ore dei due turni da entrata, uscita e pausa (sovrascrive quelle scritte)
+    [0, 1].forEach(t => proponiOreTurno(bl[i], t, stato.aperto.dati));
+    avviso('Ore proposte: controllale prima di convalidare', 'ok');
+  }
   disegnaBlocchi();
+  aggiornaRiepilogo();
 });
 $('btnAggiungiBlocco').onclick = () => {
   const r = stato.aperto.dati;
@@ -1944,6 +1978,7 @@ if (EMULATORE) {
     scriviElenchi: async () => setDoc(doc(db, 'elenchi', 'automezzi'), { voci: ['PROVA'] }).then(() => 'scritto', e => e.code),
     modificaUtente: async uid => updateDoc(doc(db, 'utenti', uid), { attivo: false }).then(() => 'scritto', e => e.code),
     leggiPin: async () => getDocs(collection(db, 'accessi')).then(s => 'letti ' + s.size, e => e.code),
-    testata: (pagina, t) => testataModulo(pagina, t)
+    testata: (pagina, t) => testataModulo(pagina, t),
+    oreProposte: r => bloccoIniziale(r).ore.t1
   };
 }
