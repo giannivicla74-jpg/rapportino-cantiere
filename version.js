@@ -2,6 +2,11 @@
 // La usano la scritta in fondo alla pagina (con l'elenco "Novità") e il service worker (sw.js)
 // per scaricare la versione nuova.
 self.APP_STORICO = [
+  { versione: '1.9', data: '03/11/2026', novita: [
+    'Tasto \"Stampa\" nel rapportino aperto: fronte e retro su due fogli A4 come il modulo cartaceo',
+    'Retro con tabella Turno di lavoro, riquadro ore 1°/2° turno, operai e Firma RC / Convalida',
+    'Dalla finestra di stampa si può salvare anche in PDF'
+  ] },
   { versione: '1.8', data: '03/11/2026', novita: [
     'Convalidati organizzati per anno, mese e settimana (lunedì-domenica)',
     'Ogni rapportino va nel periodo della sua data; per ogni mese e settimana si vede quanti sono',

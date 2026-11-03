@@ -225,6 +225,7 @@
           <button class="btn" id="btnAggiungiBlocco">+ Aggiungi blocco</button>
           <div class="riepilogo" id="riepilogoOre"></div>
           <div class="azioni">
+            <button class="btn" id="btnStampa" type="button">🖨 Stampa</button>
             <button class="btn pericolo" id="btnElimina">Elimina rapportino</button>
             <button class="btn" id="btnSalvaOre">Salva senza convalidare</button>
             <button class="btn primario grande" id="btnConvalida">Convalida e scrivi su Excel</button>
@@ -319,5 +320,8 @@
   </div>
 
   <div id="avvisi" class="avvisi"></div>
+
+  <!-- Copia del rapportino da stampare (fronte e retro): visibile solo in stampa -->
+  <div id="stampa" class="stampa"></div>
 </body>
 </html>

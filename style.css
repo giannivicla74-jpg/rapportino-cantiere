@@ -456,3 +456,45 @@ button.o-p { cursor: pointer; -webkit-tap-highlight-color: transparent; }
 .periodo-settimana { padding: 4px 14px 14px; }
 .settimana-titolo { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 8px 0 6px; border-top: 1px dashed var(--bordo); font-size: .92rem; }
 .settimana-titolo span:not(.periodo-conta) { color: var(--testo-tenue); flex: 1; }
+
+/* ============================================================
+   STAMPA: fronte e retro su due fogli A4, come il modulo cartaceo
+   ============================================================ */
+.stampa { display: none; }
+.retro-blocco { border: 2px solid #111; padding: 8px; margin-top: 10px; break-inside: avoid; }
+.retro-tab { border-collapse: collapse; width: 100%; font-size: .85rem; }
+.retro-tab th, .retro-tab td { border: 1px solid #111; padding: 4px 6px; text-align: center; height: 26px; }
+.retro-tab th { background: #e4e4e4; font-family: "Times New Roman", serif; font-style: italic; font-weight: 700; }
+.retro-tab td { color: var(--inchiostro, #1a3fa0); font-weight: 600; }
+.retro-turno caption { font-weight: 800; padding: 4px; background: #e4e4e4; border: 1px solid #111; border-bottom: 0; }
+.retro-tot { font-size: 1.1rem; }
+.retro-sotto { display: grid; grid-template-columns: 1fr 52%; gap: 12px; margin-top: 10px; align-items: start; }
+.retro-operai { font-size: .82rem; color: #111; padding-top: 4px; }
+.retro-ore th { text-align: right; }
+.retro-ore thead th { text-align: center; }
+.retro-totale th, .retro-totale td { background: #e4e4e4; }
+.retro-firma { width: 52%; margin: 10px 0 0 auto; }
+.retro-firma th { width: 34%; text-align: right; }
+
+@media print {
+  @page { size: A4 portrait; margin: 8mm; }
+  html, body { background: #fff !important; }
+  body > *:not(#stampa) { display: none !important; }
+  #stampa { display: block !important; font-size: 11px; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .stampa-pagina { break-after: page; max-width: none; margin: 0; padding: 0; border: 0; box-shadow: none; }
+  .stampa-pagina:last-child { break-after: auto; }
+  .stampa .vista-operai, .stampa .corr, .stampa .correggi-operai, .stampa .nota-corr + .corr { display: none !important; }
+  /* tabella operai sempre completa come sul foglio (anche se la pagina di stampa è "stretta") */
+  .stampa .tab-operai .operaio { grid-template-columns: 2.3fr 34px 1fr 1.9fr 1fr !important; }
+  .stampa .tab-operai .operaio .o-ora { display: flex !important; grid-column: auto !important; align-items: center; justify-content: center;
+    gap: 4px; border-left: 1px solid #111; padding: 1px 4px !important; }
+  .stampa .tab-operai .operaio.testa .o-ora { display: flex !important; font-size: 7px; text-align: center; line-height: 1.15; }
+  .stampa .o-partenza .o-et, .stampa .o-rientro .o-et { display: none !important; }
+  .stampa .o-cantiere .o-et { font-size: 10px; color: #111; }
+  .stampa .o-nome { min-height: 22px !important; padding: 1px 6px !important; font-size: 11px; }
+  .stampa .casella-p::after { font-size: 15px; }
+  .stampa .t-sede { font-size: 8px; } .stampa .t-titolo { font-size: 11px; } .stampa .t-griglia { font-size: 8px; }
+  .stampa .t-logo img { max-width: 220px; }
+  .stampa .r-et { font-size: 12px; } .stampa .riquadro input, .stampa .r-valore { font-size: 11px; }
+  .stampa .riquadro { margin-top: 6px; }
+}

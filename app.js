@@ -1169,6 +1169,55 @@ $('btnElimina').onclick = async () => {
   } catch (err) { avviso(messaggioErrore(err), 'errore'); }
 };
 
+// ---------------------------------------------------------------- stampa (fronte e retro come il modulo)
+// Fronte: la pagina 1 com'è a schermo (presenti o tutti gli operai, con le correzioni).
+// Retro: per ogni blocco la tabella TURNO DI LAVORO, il riquadro ore 1°/2° turno, gli operai e Firma RC / Convalida.
+function stampaRetro(r) {
+  const vuoto = v => (v ? fmtOre(v) : '');
+  const blocchi = stato.aperto.blocchi.map(b => {
+    let tot = 0;
+    const righe = b.righe.map(rg => {
+      const sub = differenzaOre(rg.entrata, rg.uscita);
+      const parz = sub ? Math.max(0, sub - num(rg.pausa)) : 0;
+      tot += parz;
+      return { ...rg, sub, parz };
+    });
+    const totOre = t => VOCI_ORE.reduce((s, [k]) => s + num(b.ore[t][k]), 0);
+    return `<div class="retro-blocco">
+      <table class="retro-tab retro-turno">
+        <caption>TURNO DI LAVORO</caption>
+        <thead><tr><th>Commessa</th><th>Entrata</th><th>Uscita</th><th>Sub-ore</th><th>A detrarre PAUSA</th><th>Parziali</th><th>Totale</th></tr></thead>
+        <tbody>${righe.map((rg, t) => `<tr>
+          <td>${esc(rg.commessa)}</td><td>${esc(rg.entrata)}</td><td>${esc(rg.uscita)}</td>
+          <td>${vuoto(rg.sub)}</td><td>${esc(rg.pausa)}</td><td>${vuoto(rg.parz)}</td>
+          ${t === 0 ? `<td rowspan="${righe.length}" class="retro-tot">${vuoto(tot)}</td>` : ''}</tr>`).join('')}</tbody>
+      </table>
+      <div class="retro-sotto">
+        <div class="retro-operai"><b>Operai:</b> ${b.operai.map(esc).join(', ') || '—'}</div>
+        <table class="retro-tab retro-ore">
+          <thead><tr><th></th><th>1° TURNO</th><th>2° TURNO</th></tr></thead>
+          <tbody>${VOCI_ORE.map(([k, et]) => `<tr><th>${et}</th><td>${vuoto(num(b.ore.t1[k]))}</td><td>${vuoto(num(b.ore.t2[k]))}</td></tr>`).join('')}
+            <tr class="retro-totale"><th>TOTALE ORE</th><td colspan="2">${vuoto(totOre('t1') + totOre('t2'))}</td></tr></tbody>
+        </table>
+      </div>
+      <table class="retro-tab retro-firma">
+        <tr><th>Firma RC</th><td class="firma">${esc(r.convalidatoDaNome || '')}</td></tr>
+        <tr><th>Convalida</th><td>${esc(r.convalidatoIl ? dataOraIT(r.convalidatoIl) : '')}</td></tr>
+      </table>
+    </div>`;
+  }).join('');
+  return `<section class="stampa-pagina modulo stampa-retro">${testataModulo(2, { ...intestazione, ...(r.intestazione || {}) })}${blocchi}</section>`;
+}
+
+$('btnStampa').onclick = () => {
+  const r = stato.aperto.dati;
+  $('stampa').innerHTML = `<section class="stampa-pagina modulo">${$('dettaglioFronte').innerHTML}</section>${stampaRetro(r)}`;
+  const titolo = document.title;
+  document.title = `Rapportino ${dataIT(r.data).replace(/\//g, '-')} ${r.commessa}`; // nome proposto per il PDF
+  window.print();
+  document.title = titolo;
+};
+
 // ---------------------------------------------------------------- scrittura su Excel
 function mostraAvvisoCartella(s) {
   stato.cartellaPronta = false;
