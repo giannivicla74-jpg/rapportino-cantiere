@@ -357,3 +357,24 @@ button.o-p { cursor: pointer; -webkit-tap-highlight-color: transparent; }
 .riga-logo { display: flex; flex-wrap: wrap; gap: 8px; margin: 4px 0 8px; }
 .riga-logo label.btn { display: inline-flex; align-items: center; }
 .finestra-box .modulo { padding: 6px; box-shadow: none; }
+
+/* rapportino aperto dal responsabile: pagina 1 e pagina 2 una accanto all'altra (PC),
+   ognuna scorre per conto suo; su schermi stretti restano una sotto l'altra */
+.contenuto.largo { max-width: none; }
+@media (min-width: 1100px) {
+  .affiancati { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 14px; align-items: start; }
+  .affiancati > .modulo {
+    max-width: none; margin: 0; position: sticky; top: 64px;
+    max-height: calc(100vh - 80px); max-height: calc(100dvh - 80px); overflow: auto; overscroll-behavior: contain;
+  }
+  /* metà schermo: la tabella operai della pagina 1 in forma compatta come sul telefono, ma con gli orari in riga */
+  .affiancati .tab-operai .operaio { grid-template-columns: minmax(150px, 2fr) 40px minmax(0, 1fr) minmax(0, 1.7fr) minmax(0, 1fr); }
+  .affiancati .t-sede { font-size: .68rem; }
+  .affiancati .t-titolo { font-size: .9rem; }
+  .affiancati .t-griglia { font-size: .64rem; }
+  .affiancati .o-nome { font-size: .92rem; min-height: 38px; }
+  .affiancati .operaio.testa .o-ora { font-size: .62rem; }
+  /* pagina 2 compatta: caselle ore più piccole */
+  .affiancati .pagina-ore .tab input.ore { width: 58px; }
+  .affiancati .pagina-ore .tab th, .affiancati .pagina-ore .tab td { padding: 4px 5px; }
+}

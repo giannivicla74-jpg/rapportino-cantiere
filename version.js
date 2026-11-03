@@ -2,6 +2,10 @@
 // La usano la scritta in fondo alla pagina (con l'elenco "Novità") e il service worker (sw.js)
 // per scaricare la versione nuova.
 self.APP_STORICO = [
+  { versione: '0.8', data: '03/11/2026', novita: [
+    'Sul PC il rapportino aperto mostra pagina 1 e pagina 2 una accanto all\'altra',
+    'Ogni pagina scorre per conto suo: si scrivono le ore guardando presenze e orari'
+  ] },
   { versione: '0.7', data: '03/11/2026', novita: [
     'Logo Vi.Cla. Future originale, nitido, al posto di quello ritagliato dalla scansione'
   ] },

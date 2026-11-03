@@ -287,6 +287,9 @@ function mostraVista(nome) {
   Object.entries(VISTE).forEach(([k, id]) => { $(id).hidden = k !== nome; });
   document.querySelectorAll('.scheda-btn').forEach(b => b.classList.toggle('attiva', b.dataset.vista === nome || (nome === 'dettaglio' && b.dataset.vista === 'arrivati') || (nome === 'inviato' && b.dataset.vista === 'compila')));
   window.scrollTo(0, 0);
+  // rapportino aperto: tutta la larghezza dello schermo per le due pagine affiancate, ognuna dall'inizio
+  document.querySelector('.contenuto').classList.toggle('largo', nome === 'dettaglio');
+  if (nome === 'dettaglio') document.querySelectorAll('.affiancati > .modulo').forEach(m => { m.scrollTop = 0; });
   if (nome === 'convalidati') caricaConvalidati();
 }
 document.querySelectorAll('.scheda-btn').forEach(b => { b.onclick = () => mostraVista(b.dataset.vista); });
