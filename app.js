@@ -176,11 +176,6 @@ document.querySelectorAll('[data-tema-btn]').forEach(b => {
 });
 
 // Telefono: l'app installata resta in orizzontale (dove il sistema lo permette); nel browser l'avviso si può chiudere
-if (matchMedia('(display-mode: standalone)').matches && screen.orientation?.lock) {
-  screen.orientation.lock('landscape').catch(() => {});
-}
-if (ls.get('rapp_gira_chiuso')) document.body.classList.add('gira-chiuso');
-$('btnChiudiGira').onclick = () => { document.body.classList.add('gira-chiuso'); ls.set('rapp_gira_chiuso', true); };
 
 function mostraAggiornamento() {
   if (document.getElementById('barraAggiorna')) return;
@@ -469,7 +464,7 @@ function rigaOperaio(nome, i) {
   const o = stato.presenti.get(nome);
   const v = k => esc(o?.[k] || '');
   return `<div class="operaio ${o ? 'presente' : ''}" data-nome="${esc(nome)}">
-    <div class="o-nome" data-tocca><span class="o-num">${i + 1}.</span>${esc(nome)}</div>
+    <div class="o-nome" data-tocca title="${esc(nome)}"><span class="o-num">${i + 1}.</span><span class="o-testo">${esc(nome)}</span></div>
     <button type="button" class="o-p casella-p" data-tocca aria-pressed="${!!o}" aria-label="Presente: ${esc(nome)}"></button>
     <div class="o-ora o-partenza"><span class="o-et">Partenza deposito</span><input type="time" data-orario="partenza" value="${v('partenza')}"></div>
     <div class="o-ora o-cantiere"><span class="o-et">Dalle</span><input type="time" data-orario="dalle" value="${v('dalle')}"><span class="o-et">Alle</span><input type="time" data-orario="alle" value="${v('alle')}"></div>

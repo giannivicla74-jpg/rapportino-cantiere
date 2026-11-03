@@ -339,13 +339,28 @@ button.o-p { cursor: pointer; -webkit-tap-highlight-color: transparent; }
 .o-et { font-size: .72rem; color: var(--testo-tenue); font-style: italic; }
 .o-ora input { border: 0; border-bottom: 1.5px dotted #777; border-radius: 0; min-height: 36px; padding: 2px; background: transparent; font-weight: 600; width: 100%; }
 .o-ora b { color: var(--inchiostro); }
-/* telefono: gli orari compaiono sotto il nome quando c'è la X */
+/* telefono in verticale: tabella come sul foglio, tutta su una riga; SOLO la tabella scorre a destra e a sinistra
+   e il nome con la casella P restano fermi a sinistra */
 @media (max-width: 759px) {
-  .operaio.testa .o-ora { display: none !important; }
-  .operaio.presente .o-ora { display: grid; grid-column: 1 / -1; grid-template-columns: 6.5em minmax(0, 1fr); align-items: center; gap: 2px 6px; padding: 0 8px 4px 2.2em; min-width: 0; }
-  .operaio.presente .o-et { line-height: 1.15; }
-  .o-ora input { min-width: 0; }
-  .operaio.presente .o-rientro { padding-bottom: 8px; }
+  .tab-operai { overflow-x: auto; -webkit-overflow-scrolling: touch; overscroll-behavior-x: contain; }
+  .tab-operai .operaio { width: max-content; min-width: 100%; grid-template-columns: 150px 44px 112px 240px 112px; background: #fff; }
+  .tab-operai .operaio.testa { background: var(--fascia); }
+  .tab-operai .o-nome { position: sticky; left: 0; z-index: 2; background: inherit; font-size: .92rem; padding-right: 4px; }
+  .tab-operai .o-p { position: sticky; left: 150px; z-index: 2; background: inherit; border-right: 1px solid #111; box-shadow: 3px 0 4px -2px rgba(0, 0, 0, .25); }
+  .o-ora { display: flex; align-items: center; justify-content: center; gap: 4px; border-left: 1px solid #111; padding: 2px 5px; }
+  .operaio.testa .o-ora { font-size: .62rem; text-align: center; line-height: 1.15; }
+  .o-partenza .o-et, .o-rientro .o-et { display: none; }
+  .o-cantiere .o-et { font-size: .85rem; color: #111; font-family: "Times New Roman", serif; }
+  .o-ora input { flex: 1 1 0; min-width: 0; }
+  .operaio:not(.presente) .o-ora > * { display: none; }
+  .operaio:not(.presente):not(.testa) .o-cantiere::before { content: "Dalle …… Alle ……"; font-family: "Times New Roman", serif; font-style: italic; color: #333; white-space: nowrap; }
+  .aiuti-operai::after { content: "↔ scorri la tabella per gli orari"; width: 100%; font-size: .78rem; color: var(--testo-tenue); }
+}
+@media print {
+  .stampa .tab-operai { overflow: visible !important; }
+  .stampa .tab-operai .operaio { width: auto !important; min-width: 0 !important; }
+  .stampa .tab-operai .o-nome, .stampa .tab-operai .o-p { position: static !important; box-shadow: none !important; }
+  .stampa .aiuti-operai::after { content: none; }
 }
 /* PC e tablet: tabella completa come sulla carta */
 @media (min-width: 760px) {
@@ -520,16 +535,8 @@ button.o-p { cursor: pointer; -webkit-tap-highlight-color: transparent; }
 }
 
 /* ============================================================
-   TELEFONO IN ORIZZONTALE: tabella completa come sul foglio, barra in alto sottile e non fissa
+   TELEFONO GIRATO IN ORIZZONTALE: tabella completa come sul foglio, barra in alto sottile e non fissa
    ============================================================ */
-.gira-telefono { display: none; }
-@media (orientation: portrait) and (max-width: 600px) and (pointer: coarse) {
-  body:not(.gira-chiuso) .gira-telefono {
-    display: flex; align-items: center; gap: 10px; margin-bottom: 10px;
-    padding: 10px 12px; border-radius: 10px; background: #fff4d6; color: #1b2430; font-size: .92rem;
-  }
-  .gira-icona { font-size: 1.5rem; }
-}
 @media (orientation: landscape) and (max-height: 520px) {
   .barra { position: static; padding-top: 4px; padding-bottom: 4px; }
   .barra-titolo img { width: 24px; height: 24px; }
@@ -567,3 +574,14 @@ button.o-p { cursor: pointer; -webkit-tap-highlight-color: transparent; }
 .tema-accesso { position: fixed; top: max(10px, env(safe-area-inset-top)); right: 10px; z-index: 5; color: var(--testo); border-color: var(--bordo); background: var(--carta); }.brand-piccolo { display: inline-block; text-align: center; line-height: 1.5; }
 .brand-piccolo img { vertical-align: middle; margin-right: 4px; }
 .brand-piccolo b { white-space: nowrap; }
+
+/* telefono in verticale: più spazio per gli orari */
+@media (max-width: 759px) {
+  .contenuto { padding-left: 6px; padding-right: 6px; }
+  .modulo { padding: 6px; }
+  .tab-operai .operaio { grid-template-columns: 128px 40px 108px 236px 108px; }
+  .tab-operai .o-nome { font-size: .84rem; gap: .3em; padding-left: 5px; white-space: nowrap; overflow: hidden; }
+  .tab-operai .o-nome .o-testo, .tab-operai .o-nome:not(:has(.o-testo)) { overflow: hidden; text-overflow: ellipsis; }
+  .tab-operai .o-num { min-width: 1.3em; }
+  .tab-operai .o-p { left: 128px; }
+}

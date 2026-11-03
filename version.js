@@ -2,6 +2,12 @@
 // La usano la scritta in fondo alla pagina (con l'elenco "Novità") e il service worker (sw.js)
 // per scaricare la versione nuova.
 self.APP_STORICO = [
+  { versione: '2.5', data: '03/11/2026', novita: [
+    'Telefono: nessun blocco della rotazione, l\'app segue il telefono',
+    'In verticale la tabella operai è come sul foglio (tutto su una riga) e si scorre a destra e a sinistra con il dito',
+    'Mentre si scorre, il nome dell\'operaio e la casella P restano fermi a sinistra',
+    'Tolto l\'avviso \"Gira il telefono\"'
+  ] },
   { versione: '2.4', data: '03/11/2026', novita: [
     'Firma in fondo alla pagina: \"GC-CodeLab • Software Engineered & Designed by Giovanni Cavallo\"'
   ] },
