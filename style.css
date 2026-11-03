@@ -284,8 +284,8 @@ table.tab { border-collapse: collapse; width: 100%; font-size: .92rem; }
 .t2-fisc { padding: 2px 4px; flex: 1; display: flex; flex-direction: column; justify-content: center; }
 .t2 .t-titolo { text-transform: none; }
 .t2-id, .t2-norme { display: grid; font-size: .56rem; text-align: center; }
-.t2-id { grid-template-columns: 1.35fr 1fr 1fr 1fr 1fr; border-bottom: 1px solid #111; }
-.t2-norme { grid-template-columns: 1fr 1fr 1fr 1fr; }
+.t2-id { grid-template-columns: minmax(0, 3fr) minmax(0, 2fr) minmax(0, 2fr) minmax(0, 2fr) minmax(0, 3fr); border-bottom: 1px solid #111; }
+.t2-norme { grid-template-columns: repeat(4, minmax(0, 3fr)); }
 .t2-id div, .t2-norme div { padding: 2px 3px; border-right: 1px solid #111; }
 .t2-id div:last-child, .t2-norme div:last-child { border-right: 0; }
 @media (min-width: 640px) { .t2-dati { font-size: .78rem; } .t2-rs { font-size: 1rem; } .t2-id, .t2-norme { font-size: .78rem; } }
