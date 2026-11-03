@@ -22,8 +22,9 @@
   --raggio: 10px;
   color-scheme: light;
 }
+/* Tema scuro: automatico (impostazione del telefono/PC) oppure scelto con il tasto ☀/🌙 (data-tema su <html>) */
 @media (prefers-color-scheme: dark) {
-  :root {
+  :root:not([data-tema="chiaro"]) {
     --sfondo: #10151c;
     --carta: #1a212b;
     --testo: #e6ebf1;
@@ -40,9 +41,28 @@
     --attenzione-sfondo: #3a3118;
     --evidenza: #22303f;
     --ombra: 0 1px 3px rgba(0, 0, 0, .4);
-    color-scheme: dark;
-  }
+    --gc-blu: #8fb0ee; --gc-rame: #e0a46a;
+    color-scheme: dark;  }
 }
+:root[data-tema="scuro"] {
+    --sfondo: #10151c;
+    --carta: #1a212b;
+    --testo: #e6ebf1;
+    --testo-tenue: #9aa7b6;
+    --bordo: #334050;
+    --bordo-forte: #c9d1db;
+    --primario: #4f7fbf;
+    --primario-testo: #ffffff;
+    --accento: #c77fcc;
+    --ok: #5cc98a;
+    --ok-sfondo: #17301f;
+    --pericolo: #ff8a80;
+    --pericolo-sfondo: #3a1d1b;
+    --attenzione-sfondo: #3a3118;
+    --evidenza: #22303f;
+    --ombra: 0 1px 3px rgba(0, 0, 0, .4);
+    --gc-blu: #8fb0ee; --gc-rame: #e0a46a;
+    color-scheme: dark;}
 
 * { box-sizing: border-box; }
 html, body { margin: 0; }
@@ -527,10 +547,10 @@ button.o-p { cursor: pointer; -webkit-tap-highlight-color: transparent; }
    BRAND GC-CodeLab (firma dello sviluppatore): blu del marchio e motto
    ============================================================ */
 :root { --gc-blu: #163470; --gc-rame: #b87333; }
-@media (prefers-color-scheme: dark) { :root { --gc-blu: #8fb0ee; --gc-rame: #e0a46a; } }
 .firma-brand { display: flex; align-items: center; gap: 12px; margin-top: 6px; color: var(--gc-blu); }
 .firma-brand img { width: 64px; height: auto; flex: none; }
-@media (prefers-color-scheme: dark) { .firma-brand img, .brand-piccolo img { filter: brightness(1.9) saturate(.7); } }
+@media (prefers-color-scheme: dark) { :root:not([data-tema="chiaro"]) .firma-brand img, :root:not([data-tema="chiaro"]) .brand-piccolo img { filter: brightness(1.9) saturate(.7); } }
+:root[data-tema="scuro"] .firma-brand img, :root[data-tema="scuro"] .brand-piccolo img { filter: brightness(1.9) saturate(.7); }
 .brand-nome { font-weight: 800; font-size: 1.15rem; letter-spacing: .02em; line-height: 1.1; }
 .brand-motto { font-size: .68rem; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--gc-rame); }
 .brand-autore { font-size: .8rem; color: var(--testo-tenue); }
@@ -541,3 +561,7 @@ button.o-p { cursor: pointer; -webkit-tap-highlight-color: transparent; }
 .brand-piccolo b { color: var(--gc-blu); }
 .brand-piccolo img { width: 26px; height: auto; }
 .piede .link { font-size: .8rem; color: var(--testo-tenue); }
+
+/* tasto tema ☀/🌙 */
+.btn-tema { background: transparent; color: inherit; border: 1px solid rgba(255, 255, 255, .5); border-radius: 8px; min-height: 36px; min-width: 40px; padding: 2px 8px; font-size: 1rem; cursor: pointer; }
+.tema-accesso { position: fixed; top: max(10px, env(safe-area-inset-top)); right: 10px; z-index: 5; color: var(--testo); border-color: var(--bordo); background: var(--carta); }

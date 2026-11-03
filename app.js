@@ -151,6 +151,30 @@ if ('serviceWorker' in navigator && location.protocol !== 'file:') {
   }).catch(() => {});
   navigator.serviceWorker.addEventListener('controllerchange', () => { if (avevaControllo) mostraAggiornamento(); });
 }
+// Tema: Automatico (segue il telefono/PC) → Chiaro → Scuro → Automatico… La scelta resta su questo dispositivo.
+const TEMI = { auto: { icona: '◐', nome: 'Automatico' }, chiaro: { icona: '☀', nome: 'Chiaro' }, scuro: { icona: '🌙', nome: 'Scuro' } };
+function applicaTema(t) {
+  if (t === 'chiaro' || t === 'scuro') document.documentElement.dataset.tema = t;
+  else { delete document.documentElement.dataset.tema; t = 'auto'; }
+  document.querySelectorAll('[data-tema-btn]').forEach(b => {
+    b.textContent = TEMI[t].icona;
+    b.title = `Tema: ${TEMI[t].nome} (tocca per cambiare)`;
+    b.setAttribute('aria-label', b.title);
+  });
+  const scuro = t === 'scuro' || (t === 'auto' && matchMedia('(prefers-color-scheme: dark)').matches);
+  document.querySelector('meta[name="theme-color"]')?.setAttribute('content', scuro ? '#10151c' : '#1f3a5f');
+  return t;
+}
+const temaSalvato = (() => { try { return localStorage.getItem('rapp_tema'); } catch (_) { return null; } })();
+let temaAttuale = applicaTema(temaSalvato || 'auto');
+document.querySelectorAll('[data-tema-btn]').forEach(b => {
+  b.onclick = () => {
+    temaAttuale = applicaTema({ auto: 'chiaro', chiaro: 'scuro', scuro: 'auto' }[temaAttuale]);
+    try { localStorage.setItem('rapp_tema', temaAttuale); } catch (_) {} // letto anche dallo script in <head>
+    avviso(`Tema: ${TEMI[temaAttuale].nome}`);
+  };
+});
+
 // Telefono: l'app installata resta in orizzontale (dove il sistema lo permette); nel browser l'avviso si può chiudere
 if (matchMedia('(display-mode: standalone)').matches && screen.orientation?.lock) {
   screen.orientation.lock('landscape').catch(() => {});

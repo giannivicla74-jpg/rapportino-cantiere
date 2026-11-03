@@ -2,6 +2,11 @@
 // La usano la scritta in fondo alla pagina (con l'elenco "Novità") e il service worker (sw.js)
 // per scaricare la versione nuova.
 self.APP_STORICO = [
+  { versione: '2.3', data: '03/11/2026', novita: [
+    'Tasto per il tema in alto (◐ automatico, ☀ chiaro, 🌙 scuro), anche nella schermata di accesso',
+    'Con il tema scuro lo sfondo è scuro e il modulo resta un foglio bianco: stanca meno gli occhi',
+    'La scelta resta salvata su quel telefono o PC'
+  ] },
   { versione: '2.2', data: '03/11/2026', novita: [
     'Brand GC-CodeLab: marchio, motto \"Development | Innovation | Solution\" e \"Sviluppato da Giovanni Cavallo\"',
     'La firma compare nella schermata di accesso, in fondo alle pagine e nelle Novità',

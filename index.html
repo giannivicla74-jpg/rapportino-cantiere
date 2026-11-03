@@ -10,6 +10,10 @@
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" href="icons/icon-192.png">
   <link rel="apple-touch-icon" href="icons/icon-192.png">
+  <script>
+    // tema scelto (chiaro/scuro) applicato subito, prima che la pagina si disegni
+    try { const t = localStorage.getItem('rapp_tema'); if (t === 'chiaro' || t === 'scuro') document.documentElement.dataset.tema = t; } catch (_) {}
+  </script>
   <link rel="stylesheet" href="style.css">
   <script src="version.js"></script>
   <script src="libs/jszip.min.js"></script>
@@ -35,6 +39,7 @@
 
   <!-- ===================== ACCESSO ===================== -->
   <section id="scrLogin" class="schermo centro" hidden>
+    <button class="btn-tema tema-accesso" type="button" data-tema-btn title="Tema chiaro / scuro"></button>
     <form id="formLogin" class="scheda stretta" autocomplete="on">
       <div class="logo-titolo">
         <img src="icons/icon-192.png" alt="" width="56" height="56">
@@ -103,6 +108,7 @@
         <button class="scheda-btn" data-vista="compila">Compila</button>
         <button class="scheda-btn" data-vista="gestione">Elenchi e utenti</button>
       </nav>
+      <button class="btn-tema" type="button" data-tema-btn title="Tema chiaro / scuro"></button>
       <button class="btn piccolo" id="btnEsci">Esci</button>
     </header>
 
