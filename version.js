@@ -2,6 +2,12 @@
 // La usano la scritta in fondo alla pagina (con l'elenco "Novità") e il service worker (sw.js)
 // per scaricare la versione nuova.
 self.APP_STORICO = [
+  { versione: '3.1', data: '03/11/2026', novita: [
+    '\"Elenchi e utenti\" non compare più nella barra in alto',
+    'Ingresso nascosto per lo sviluppatore: 5 tocchi sul simbolo GC in fondo alla pagina, poi il PIN',
+    'Il PIN si crea al primo ingresso e si cambia dall\'area stessa; 5 PIN sbagliati bloccano per 5 minuti',
+    'L\'area si richiude uscendo dall\'app, ricaricando la pagina o con \"Chiudi area sviluppatore\"'
+  ] },
   { versione: '3.0', data: '03/11/2026', novita: [
     'Tema scuro: nella pagina 2 i messaggi rossi e gialli (es. \"Senza ore\") e i tasti ora si leggono bene',
     'Dentro il modulo bianco si usano sempre i colori del foglio chiaro'

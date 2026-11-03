@@ -228,6 +228,7 @@ const stato = {
 async function utenteCambiato(user) {
   stato.annulla.forEach(f => { try { f(); } catch (_) {} });
   stato.annulla = [];
+  stato.areaAperta = false;
   if (!user) {
     stato.utente = null;
     mostraSchermo('scrLogin');
@@ -256,7 +257,9 @@ async function utenteCambiato(user) {
   avviaCompilazione();
   if (profilo.ruolo === 'responsabile') {
     $('menuResponsabile').hidden = false;
-    document.querySelector('.scheda-btn[data-vista="gestione"]').hidden = !sviluppatore;
+    // "Elenchi e utenti" nascosto per tutti: lo sviluppatore lo apre con 5 tocchi sul simbolo GC + PIN
+    stato.areaAperta = false;
+    document.querySelector('.scheda-btn[data-vista="gestione"]').hidden = true;
     avviaResponsabile();
     mostraVista('arrivati');
   } else {
@@ -339,6 +342,7 @@ $('btnEsciNonAbilitato').onclick = () => signOut(auth);
 // ---------------------------------------------------------------- viste
 const VISTE = { compila: 'vistaCompila', inviato: 'vistaInviato', arrivati: 'vistaArrivati', convalidati: 'vistaConvalidati', dettaglio: 'vistaDettaglio', gestione: 'vistaGestione' };
 function mostraVista(nome) {
+  if (nome === 'gestione' && !stato.areaAperta) return;
   Object.entries(VISTE).forEach(([k, id]) => { $(id).hidden = k !== nome; });
   document.querySelectorAll('.scheda-btn').forEach(b => b.classList.toggle('attiva', b.dataset.vista === nome || (nome === 'dettaglio' && b.dataset.vista === 'arrivati') || (nome === 'inviato' && b.dataset.vista === 'compila')));
   window.scrollTo(0, 0);
@@ -1669,6 +1673,72 @@ $('formUtente').addEventListener('submit', async e => {
     $('btnCreaUtente').disabled = false;
   }
 });
+
+// ---------------------------------------------------------------- area sviluppatore (ingresso nascosto)
+// 5 tocchi sul simbolo GC in fondo alla pagina + PIN. Per tutti gli altri il simbolo non fa nulla.
+// Il PIN è salvato come impronta (SHA-256 con sale) in config/sviluppatore, leggibile solo dallo sviluppatore.
+// La vera protezione resta nelle regole del database (solo il profilo sviluppatore può modificare elenchi e utenti).
+let tocchiMarchio = [], pinSbagliati = 0, pinBloccatoFino = 0;
+async function impronta(pin, sale) {
+  const b = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(`${sale}:${pin}`));
+  return [...new Uint8Array(b)].map(x => x.toString(16).padStart(2, '0')).join('');
+}
+async function chiediPin(titolo, testo) {
+  const scelta = finestra(titolo, `<p>${testo}</p><input id="campoPin" class="campo-pin" type="password" inputmode="numeric" autocomplete="off" maxlength="12">`,
+    [{ testo: 'Annulla', valore: false }, { testo: 'Conferma', valore: true, primario: true }]);
+  const campo = $('campoPin');
+  campo.focus();
+  campo.onkeydown = e => { if (e.key === 'Enter') { e.preventDefault(); $('finestraBottoni').lastChild.click(); } };
+  return (await scelta) ? campo.value.trim() : null;
+}
+async function nuovoPin(primaVolta) {
+  const p1 = await chiediPin(primaVolta ? 'Crea il PIN' : 'Nuovo PIN',
+    `${primaVolta ? 'Primo ingresso nell\'area sviluppatore. ' : ''}Scegli un PIN da 4 a 12 cifre.`);
+  if (p1 === null) return false;
+  if (!/^\d{4,12}$/.test(p1)) { avviso('Il PIN deve avere da 4 a 12 cifre', 'errore'); return false; }
+  const p2 = await chiediPin('Ripeti il PIN', 'Scrivi di nuovo lo stesso PIN.');
+  if (p2 === null) return false;
+  if (p1 !== p2) { avviso('I due PIN non sono uguali: riprova', 'errore'); return false; }
+  const sale = [...crypto.getRandomValues(new Uint8Array(16))].map(x => x.toString(16).padStart(2, '0')).join('');
+  await setDoc(doc(db, 'config', 'sviluppatore'), { pinImpronta: await impronta(p1, sale), sale, impostatoIl: serverTimestamp() });
+  avviso('PIN salvato', 'ok');
+  return true;
+}
+async function apriAreaSviluppatore() {
+  if (!stato.utente?.sviluppatore) return;
+  if (stato.areaAperta) { mostraVista('gestione'); return; }
+  if (Date.now() < pinBloccatoFino) { avviso('Troppi PIN errati: riprova tra qualche minuto', 'errore'); return; }
+  try {
+    const snap = await getDoc(doc(db, 'config', 'sviluppatore'));
+    const cfg = snap.exists() ? snap.data() : null;
+    if (!cfg?.pinImpronta) {
+      if (!await nuovoPin(true)) return;
+    } else {
+      const pin = await chiediPin('Area sviluppatore', 'Inserisci il PIN.');
+      if (pin === null) return;
+      if (await impronta(pin, cfg.sale) !== cfg.pinImpronta) {
+        if (++pinSbagliati >= 5) { pinSbagliati = 0; pinBloccatoFino = Date.now() + 5 * 60 * 1000; avviso('PIN errato 5 volte: riprova tra 5 minuti', 'errore'); }
+        else avviso('PIN errato', 'errore');
+        return;
+      }
+    }
+  } catch (err) { avviso(messaggioErrore(err), 'errore'); return; }
+  pinSbagliati = 0;
+  stato.areaAperta = true;
+  document.querySelector('.scheda-btn[data-vista="gestione"]').hidden = false;
+  mostraVista('gestione');
+}
+$('marchioGC').addEventListener('click', () => {
+  const ora = Date.now();
+  tocchiMarchio = tocchiMarchio.filter(t => ora - t < 4000).concat(ora);
+  if (tocchiMarchio.length >= 5) { tocchiMarchio = []; apriAreaSviluppatore(); }
+});
+$('btnCambiaPin').onclick = () => nuovoPin(false).catch(err => avviso(messaggioErrore(err), 'errore'));
+$('btnChiudiArea').onclick = () => {
+  stato.areaAperta = false;
+  document.querySelector('.scheda-btn[data-vista="gestione"]').hidden = true;
+  mostraVista('arrivati');
+};
 
 // Solo per le prove automatiche con il simulatore: cartella finta e lettura diretta (per verificare le regole)
 if (EMULATORE) {
