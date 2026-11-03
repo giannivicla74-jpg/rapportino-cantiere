@@ -2,6 +2,9 @@
 // La usano la scritta in fondo alla pagina (con l'elenco "Novità") e il service worker (sw.js)
 // per scaricare la versione nuova.
 self.APP_STORICO = [
+  { versione: '2.6', data: '03/11/2026', novita: [
+    'Telefono in verticale: l\'intestazione \"COGNOME E NOME\" della tabella si legge intera (prima era tagliata)'
+  ] },
   { versione: '2.5', data: '03/11/2026', novita: [
     'Telefono: nessun blocco della rotazione, l\'app segue il telefono',
     'In verticale la tabella operai è come sul foglio (tutto su una riga) e si scorre a destra e a sinistra con il dito',

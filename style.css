@@ -585,3 +585,8 @@ button.o-p { cursor: pointer; -webkit-tap-highlight-color: transparent; }
   .tab-operai .o-num { min-width: 1.3em; }
   .tab-operai .o-p { left: 128px; }
 }
+@media (max-width: 759px) {
+  /* intestazione "COGNOME E NOME" intera, su due righe se serve */
+  .tab-operai .operaio.testa .o-nome { white-space: normal; overflow: visible; font-size: .8rem; line-height: 1.15; padding: 4px 5px; }
+  .tab-operai .operaio.testa .o-p { font-size: 1rem; }
+}
