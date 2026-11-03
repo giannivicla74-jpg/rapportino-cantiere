@@ -683,8 +683,10 @@ function apriRapportino(r) {
   const conv = r.stato === 'convalidato';
   $('btnConvalida').textContent = conv ? 'Riscrivi su Excel' : 'Convalida e scrivi su Excel';
   $('btnSalvaOre').hidden = conv;
-  $('infoFileExcel').textContent = conv
-    ? `Convalidato da ${r.convalidatoDaNome || ''} il ${dataOraIT(r.convalidatoIl)} · scritto in ${r.fileExcel || ''}`
+  $('infoFileExcel').innerHTML = conv
+    ? `Convalidato da ${esc(r.convalidatoDaNome || '')} il ${esc(dataOraIT(r.convalidatoIl))}.
+       ${percorsoHTML(r.cartellaExcel, r.fileExcel, r.giornoExcel || Number(String(r.data).slice(8, 10)),
+         (r.righeExcel || []).map(x => { const [nome, turno, riga] = x.split('|'); return { nome, turno: Number(turno), riga: Number(riga) }; }))}`
     : '';
   mostraVista('dettaglio');
 }
@@ -1016,7 +1018,23 @@ async function fileDelMese(anno, mese) {
   return nuovo;
 }
 
-const etichettaTurno = v => [v.commessa || '(senza commessa)', ...VOCI_ORE.filter(([k]) => v[k]).map(([k, et]) => `${et} ${fmtOre(v[k])}`)].join(' · ');
+// Dove sono stati scritti i dati: cartella collegata, file, foglio, giorno e riga di ogni operaio.
+// Il browser non rivela il percorso completo (es. \\NAS\...), solo il nome della cartella collegata.
+function percorsoHTML(cartella, file, giorno, righe = []) {
+  const inizio = 2 + (giorno - 1) * 69;
+  return `<div class="percorso">
+    <div><span>Cartella</span><b>${esc(cartella || '(cartella collegata)')}</b></div>
+    <div><span>File</span><b>${esc(file || '')}</b></div>
+    <div><span>Foglio</span><b>Presenze Master- OPERAI</b></div>
+    <div><span>Giorno</span><b>${giorno} (righe da ${inizio} a ${inizio + 68})</b></div>
+    ${righe.length ? `<details><summary>Riga di ogni operaio</summary>
+      <table class="tab"><thead><tr><th>Riga</th><th>Operaio</th><th>Turno</th></tr></thead>
+      <tbody>${righe.map(x => `<tr><td>${x.riga}</td><td>${esc(x.nome)}</td><td>${x.turno}°</td></tr>`).join('')}</tbody></table>
+    </details>` : ''}
+  </div>`;
+}
+
+const etichettaTurno =v => [v.commessa || '(senza commessa)', ...VOCI_ORE.filter(([k]) => v[k]).map(([k, et]) => `${et} ${fmtOre(v[k])}`)].join(' · ');
 
 $('btnConvalida').onclick = async () => {
   const { dati } = stato.aperto;
@@ -1069,6 +1087,9 @@ $('btnConvalida').onclick = async () => {
       const risultato = await ExcelXlsm.writePresenze(bytes, giorno, daScrivere);
       await CartellaExcel.writeBytes(fileName, risultato.bytes);
     }
+    // riga Excel di ogni turno scritto (stessa formula di excel.js: 69 righe per giorno, 2 per operaio)
+    const righe = daScrivere.map(r => ({ nome: r.workerName, turno: r.turno, riga: 2 + (giorno - 1) * 69 + (r.workerIndex - 1) * 2 + (r.turno - 1) }))
+      .sort((a, b) => a.riga - b.riga);
 
     await updateDoc(doc(db, 'rapportini', dati.id), {
       stato: 'convalidato',
@@ -1077,9 +1098,13 @@ $('btnConvalida').onclick = async () => {
       convalidatoIl: serverTimestamp(),
       convalidatoDaUid: stato.utente.uid,
       convalidatoDaNome: stato.utente.nome,
-      fileExcel: fileName
+      fileExcel: fileName,
+      cartellaExcel: CartellaExcel.name(),
+      giornoExcel: giorno,
+      righeExcel: righe.map(x => `${x.nome}|${x.turno}|${x.riga}`)
     });
-    await finestra('Convalidato', `<p>Scritti <b>${daScrivere.length}</b> turni in <b>${esc(fileName)}</b>, giorno ${giorno}.${saltati ? ` ${saltati} lasciati com'erano.` : ''}</p>
+    await finestra('Convalidato', `<p>Scritti <b>${daScrivere.length}</b> turni.${saltati ? ` ${saltati} lasciati com'erano perché già presenti.` : ''}</p>
+      ${percorsoHTML(CartellaExcel.name(), fileName, giorno, righe)}
       <p>Il rapportino è passato tra i convalidati.</p>`);
     mostraVista('arrivati');
   } catch (err) {

@@ -388,3 +388,12 @@ button.o-p { cursor: pointer; -webkit-tap-highlight-color: transparent; }
 .box-operai select { min-height: 40px; font-size: .92rem; color: var(--inchiostro); font-weight: 600; }
 .chip.aggiunto { border-style: dashed; border-width: 2px; }
 .chip .togli-mezzo { min-width: 24px; min-height: 24px; padding: 0 0 0 4px; font-size: .95rem; }
+
+/* dove sono stati scritti i dati in Excel */
+.percorso { border: 1px solid var(--bordo); border-radius: 8px; padding: 8px 12px; margin: 8px 0; background: var(--evidenza); }
+.percorso > div { display: flex; gap: 10px; padding: 2px 0; }
+.percorso > div span { min-width: 64px; color: var(--testo-tenue); font-size: .85rem; }
+.percorso b { overflow-wrap: anywhere; }
+.percorso details { margin-top: 6px; }
+.percorso summary { cursor: pointer; color: var(--primario); font-weight: 600; }
+.percorso table { margin-top: 6px; }

@@ -2,6 +2,11 @@
 // La usano la scritta in fondo alla pagina (con l'elenco "Novità") e il service worker (sw.js)
 // per scaricare la versione nuova.
 self.APP_STORICO = [
+  { versione: '1.2', data: '03/11/2026', novita: [
+    'Dopo la convalida il messaggio dice dove sono stati scritti i dati: cartella, file, foglio, giorno e righe',
+    'Si può aprire l\'elenco con la riga Excel di ogni operaio',
+    'Le stesse informazioni restano visibili riaprendo un rapportino convalidato'
+  ] },
   { versione: '1.1', data: '03/11/2026', novita: [
     'Pagina 2: box "Operai di questo blocco" nello spazio accanto al riquadro ore',
     'Il responsabile può aggiungere operai non segnati dal caposquadra (bordo tratteggiato, si tolgono con la ✕)',
