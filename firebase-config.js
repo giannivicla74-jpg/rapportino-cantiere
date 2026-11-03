@@ -7,12 +7,12 @@
 // ============================================================
 
 export const firebaseConfig = {
-  apiKey: 'DA-COMPILARE',
-  authDomain: 'DA-COMPILARE',
-  projectId: 'DA-COMPILARE',
-  storageBucket: 'DA-COMPILARE',
-  messagingSenderId: 'DA-COMPILARE',
-  appId: 'DA-COMPILARE'
+  apiKey: 'AIzaSyDZbjNvhsvYvbkWEO_JakvJLzdzBTm40kU',
+  authDomain: 'rapportino-vicla.firebaseapp.com',
+  projectId: 'rapportino-vicla',
+  storageBucket: 'rapportino-vicla.firebasestorage.app',
+  messagingSenderId: '1015973219246',
+  appId: '1:1015973219246:web:5c5893fcf486c66fce163f'
 };
 
 // Il codice utente diventa un indirizzo "finto" per l'accesso di Firebase (es. rossi -> rossi@rapportino.invalid).

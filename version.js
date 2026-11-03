@@ -2,6 +2,10 @@
 // La usano la scritta in fondo alla pagina (con l'elenco "Novità") e il service worker (sw.js)
 // per scaricare la versione nuova.
 self.APP_STORICO = [
+  { versione: '1.0', data: '03/11/2026', novita: [
+    'Prima versione online: collegata al database vero (Firebase, dati in Europa a Milano)',
+    'Indirizzo: https://giannivicla74-jpg.github.io/rapportino-cantiere/'
+  ] },
   { versione: '0.9', data: '03/11/2026', novita: [
     'Pagina 2 senza la riga di identificazione del modulo (è già nella pagina 1 accanto)'
   ] },
