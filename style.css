@@ -378,3 +378,13 @@ button.o-p { cursor: pointer; -webkit-tap-highlight-color: transparent; }
   .affiancati .pagina-ore .tab input.ore { width: 58px; }
   .affiancati .pagina-ore .tab th, .affiancati .pagina-ore .tab td { padding: 4px 5px; }
 }
+
+/* pagina 2: box "Operai di questo blocco" nello spazio accanto al riquadro ore */
+.blocco-sotto { display: grid; grid-template-columns: 1fr; gap: 12px; align-items: start; }
+@media (min-width: 640px) { .blocco-sotto { grid-template-columns: minmax(0, 1fr) auto; } }
+.box-operai { border: 1.5px dashed #9aa3ad; border-radius: 6px; padding: 8px 10px; display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.box-operai-titolo { font-weight: 800; font-size: .8rem; letter-spacing: .03em; }
+.box-operai .blocco-operai { margin-top: 0; }
+.box-operai select { min-height: 40px; font-size: .92rem; color: var(--inchiostro); font-weight: 600; }
+.chip.aggiunto { border-style: dashed; border-width: 2px; }
+.chip .togli-mezzo { min-width: 24px; min-height: 24px; padding: 0 0 0 4px; font-size: .95rem; }

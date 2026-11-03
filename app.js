@@ -673,7 +673,11 @@ function bloccoIniziale(r) {
 
 function apriRapportino(r) {
   if (!r) return;
-  stato.aperto = { id: r.id, dati: r, blocchi: (r.blocchi?.length ? structuredClone(r.blocchi) : [bloccoIniziale(r)]) };
+  stato.aperto = {
+    id: r.id, dati: r,
+    blocchi: (r.blocchi?.length ? structuredClone(r.blocchi) : [bloccoIniziale(r)]),
+    aggiunti: [...(r.operaiAggiunti || [])] // operai aggiunti dall'ufficio nella pagina 2
+  };
   disegnaFronte(r);
   disegnaBlocchi();
   const conv = r.stato === 'convalidato';
@@ -746,9 +750,17 @@ function opzioniCommessa(scelta) {
   return '<option value=""></option>' + voci.map(c => `<option ${c === scelta ? 'selected' : ''}>${esc(c)}</option>`).join('');
 }
 
+// Operai del rapportino: quelli segnati dal caposquadra più quelli aggiunti dall'ufficio
+function tuttiGliOperai() {
+  const segnati = (stato.aperto.dati.operai || []).map(o => o.nome);
+  return [...segnati, ...stato.aperto.aggiunti.filter(n => !segnati.includes(n))];
+}
+
 function disegnaBlocchi() {
-  const { dati, blocchi } = stato.aperto;
-  const presenti = (dati.operai || []).map(o => o.nome);
+  const { blocchi, aggiunti } = stato.aperto;
+  const presenti = tuttiGliOperai();
+  // per il menu "+ Aggiungi operaio": chi è nell'elenco del file Excel ma non ancora nel rapportino
+  const liberi = stato.elenchi.operai.filter(n => !presenti.includes(n));
   $('blocchi').innerHTML = blocchi.map((b, i) => `
     <div class="blocco" data-b="${i}">
       <div class="blocco-testa">
@@ -770,20 +782,34 @@ function disegnaBlocchi() {
           <tr><th colspan="6" style="text-align:right">Totale</th><td class="calc" data-calc="totTurni"></td></tr>
           </tbody>
         </table></div>
-        <div class="tabella-scorri"><table class="tab">
-          <thead><tr><th></th><th>1° turno</th><th>2° turno</th></tr></thead>
-          <tbody>${VOCI_ORE.map(([k, et]) => `<tr><th>${et}</th>
-            <td><input class="ore" inputmode="decimal" data-t="t1" data-k="${k}" value="${esc(b.ore.t1[k])}"></td>
-            <td><input class="ore" inputmode="decimal" data-t="t2" data-k="${k}" value="${esc(b.ore.t2[k])}"></td></tr>`).join('')}
-            <tr><th>Totale ore</th><td class="calc" data-calc="ore1"></td><td class="calc" data-calc="ore2"></td></tr>
-          </tbody>
-        </table></div>
+        <div class="blocco-sotto">
+          <div class="box-operai">
+            <div class="box-operai-titolo">OPERAI DI QUESTO BLOCCO</div>
+            <div class="aiuto">Spunta:
+              <button class="link" data-azione="tutti">tutti</button> ·
+              <button class="link" data-azione="nessuno">nessuno</button></div>
+            <div class="blocco-operai">${presenti.map(n => {
+              const extra = aggiunti.includes(n);
+              return `<label class="chip ${b.operai.includes(n) ? 'si' : ''} ${extra ? 'aggiunto' : ''}" ${extra ? 'title="Aggiunto dall\'ufficio"' : ''}>
+                <input type="checkbox" data-operaio="${esc(n)}" ${b.operai.includes(n) ? 'checked' : ''}>${esc(n)}${extra
+                  ? ` <button type="button" class="togli-mezzo" data-togli-operaio="${esc(n)}" aria-label="Togli ${esc(n)} dal rapportino">✕</button>` : ''}</label>`;
+            }).join('')}</div>
+            ${liberi.length ? `<select data-aggiungi-operaio aria-label="Aggiungi operaio">
+              <option value="">+ Aggiungi operaio</option>
+              ${liberi.map(n => `<option>${esc(n)}</option>`).join('')}
+            </select>` : ''}
+            ${aggiunti.length ? '<div class="aiuto">Con il bordo tratteggiato: aggiunti dall\'ufficio.</div>' : ''}
+          </div>
+          <div class="tabella-scorri tab-ore"><table class="tab">
+            <thead><tr><th></th><th>1° turno</th><th>2° turno</th></tr></thead>
+            <tbody>${VOCI_ORE.map(([k, et]) => `<tr><th>${et}</th>
+              <td><input class="ore" inputmode="decimal" data-t="t1" data-k="${k}" value="${esc(b.ore.t1[k])}"></td>
+              <td><input class="ore" inputmode="decimal" data-t="t2" data-k="${k}" value="${esc(b.ore.t2[k])}"></td></tr>`).join('')}
+              <tr><th>Totale ore</th><td class="calc" data-calc="ore1"></td><td class="calc" data-calc="ore2"></td></tr>
+            </tbody>
+          </table></div>
+        </div>
       </div>
-      <div class="aiuto" style="margin-top:8px">Vale per:
-        <button class="link" data-azione="tutti">tutti</button> ·
-        <button class="link" data-azione="nessuno">nessuno</button></div>
-      <div class="blocco-operai">${presenti.map(n => `<label class="chip ${b.operai.includes(n) ? 'si' : ''}">
-        <input type="checkbox" data-operaio="${esc(n)}" ${b.operai.includes(n) ? 'checked' : ''}>${esc(n)}</label>`).join('')}</div>
     </div>`).join('');
   blocchi.forEach((_, i) => calcolaBlocco(i));
   aggiornaRiepilogo();
@@ -821,14 +847,35 @@ $('blocchi').addEventListener('input', e => {
   calcolaBlocco(i);
   aggiornaRiepilogo();
 });
-$('blocchi').addEventListener('change', e => { if (e.target.tagName === 'SELECT') e.target.dispatchEvent(new Event('input', { bubbles: true })); });
+$('blocchi').addEventListener('change', e => {
+  // operaio non segnato dal caposquadra: entra nel rapportino e in questo blocco
+  if (e.target.dataset.aggiungiOperaio !== undefined) {
+    const n = e.target.value;
+    if (!n) return;
+    const b = stato.aperto.blocchi[parseInt(e.target.closest('.blocco').dataset.b)];
+    if (!stato.aperto.aggiunti.includes(n)) stato.aperto.aggiunti.push(n);
+    if (!b.operai.includes(n)) b.operai.push(n);
+    disegnaBlocchi();
+    return;
+  }
+  if (e.target.tagName === 'SELECT') e.target.dispatchEvent(new Event('input', { bubbles: true }));
+});
 $('blocchi').addEventListener('click', e => {
+  const togli = e.target.dataset.togliOperaio;
+  if (togli !== undefined) {
+    // toglie dal rapportino un operaio aggiunto dall'ufficio (da tutti i blocchi)
+    e.preventDefault();
+    stato.aperto.aggiunti = stato.aperto.aggiunti.filter(n => n !== togli);
+    stato.aperto.blocchi.forEach(b => { b.operai = b.operai.filter(n => n !== togli); });
+    disegnaBlocchi();
+    return;
+  }
   const az = e.target.dataset.azione;
   if (!az) return;
   const i = parseInt(e.target.closest('.blocco').dataset.b);
   const bl = stato.aperto.blocchi;
   if (az === 'togli') bl.splice(i, 1);
-  if (az === 'tutti') bl[i].operai = (stato.aperto.dati.operai || []).map(o => o.nome);
+  if (az === 'tutti') bl[i].operai = tuttiGliOperai();
   if (az === 'nessuno') bl[i].operai = [];
   disegnaBlocchi();
 });
@@ -871,7 +918,7 @@ function calcolaRecord() {
     if (!qualcosa && b.operai.length > 0) errori.push(`${nomeB}: scrivi le ore nel riquadro 1°/2° turno`);
   });
   const conOre = new Set(records.map(r => r.workerName));
-  const senza = (dati.operai || []).map(o => o.nome).filter(n => !conOre.has(n));
+  const senza = tuttiGliOperai().filter(n => !conOre.has(n));
   if (senza.length) avvisi.push(`Senza ore: ${senza.join(', ')}`);
   if (records.length === 0 && errori.length === 0) errori.push('Nessuna ora da scrivere');
   return { records, errori, avvisi };
@@ -888,7 +935,7 @@ function aggiornaRiepilogo() {
 
 $('btnSalvaOre').onclick = async () => {
   try {
-    await updateDoc(doc(db, 'rapportini', stato.aperto.id), { blocchi: stato.aperto.blocchi });
+    await updateDoc(doc(db, 'rapportini', stato.aperto.id), { blocchi: stato.aperto.blocchi, operaiAggiunti: stato.aperto.aggiunti });
     avviso('Ore salvate (il rapportino resta tra gli arrivati)', 'ok');
   } catch (err) { avviso(messaggioErrore(err), 'errore'); }
 };
@@ -1026,6 +1073,7 @@ $('btnConvalida').onclick = async () => {
     await updateDoc(doc(db, 'rapportini', dati.id), {
       stato: 'convalidato',
       blocchi: stato.aperto.blocchi,
+      operaiAggiunti: stato.aperto.aggiunti,
       convalidatoIl: serverTimestamp(),
       convalidatoDaUid: stato.utente.uid,
       convalidatoDaNome: stato.utente.nome,

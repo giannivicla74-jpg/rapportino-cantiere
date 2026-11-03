@@ -2,6 +2,11 @@
 // La usano la scritta in fondo alla pagina (con l'elenco "Novità") e il service worker (sw.js)
 // per scaricare la versione nuova.
 self.APP_STORICO = [
+  { versione: '1.1', data: '03/11/2026', novita: [
+    'Pagina 2: box "Operai di questo blocco" nello spazio accanto al riquadro ore',
+    'Il responsabile può aggiungere operai non segnati dal caposquadra (bordo tratteggiato, si tolgono con la ✕)',
+    'Gli operai aggiunti vengono salvati con il rapportino e scritti su Excel come gli altri'
+  ] },
   { versione: '1.0', data: '03/11/2026', novita: [
     'Prima versione online: collegata al database vero (Firebase, dati in Europa a Milano)',
     'Indirizzo: https://giannivicla74-jpg.github.io/rapportino-cantiere/'
