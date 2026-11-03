@@ -564,4 +564,6 @@ button.o-p { cursor: pointer; -webkit-tap-highlight-color: transparent; }
 
 /* tasto tema ☀/🌙 */
 .btn-tema { background: transparent; color: inherit; border: 1px solid rgba(255, 255, 255, .5); border-radius: 8px; min-height: 36px; min-width: 40px; padding: 2px 8px; font-size: 1rem; cursor: pointer; }
-.tema-accesso { position: fixed; top: max(10px, env(safe-area-inset-top)); right: 10px; z-index: 5; color: var(--testo); border-color: var(--bordo); background: var(--carta); }
+.tema-accesso { position: fixed; top: max(10px, env(safe-area-inset-top)); right: 10px; z-index: 5; color: var(--testo); border-color: var(--bordo); background: var(--carta); }.brand-piccolo { display: inline-block; text-align: center; line-height: 1.5; }
+.brand-piccolo img { vertical-align: middle; margin-right: 4px; }
+.brand-piccolo b { white-space: nowrap; }
