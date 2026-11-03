@@ -2,6 +2,12 @@
 // La usano la scritta in fondo alla pagina (con l'elenco "Novità") e il service worker (sw.js)
 // per scaricare la versione nuova.
 self.APP_STORICO = [
+  { versione: '2.9', data: '03/11/2026', novita: [
+    '\"Elenchi e utenti\" lo vede e lo usa solo lo sviluppatore (Giovanni Cavallo)',
+    'Gli altri responsabili ricevono, completano, convalidano e scrivono su Excel come prima',
+    'La cartella Excel gli altri responsabili la collegano dalla barra gialla in alto',
+    'Il blocco vale anche nel database: senza permesso non si possono cambiare elenchi, automezzi, intestazione e utenti'
+  ] },
   { versione: '2.8', data: '03/11/2026', novita: [
     'Schermata di accesso: tolto il collegamento \"Prima configurazione\" (nessuno lo vede più)',
     'La prima configurazione era già bloccata dal database dopo la prima volta; ora non compare nemmeno'

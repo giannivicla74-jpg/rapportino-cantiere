@@ -248,12 +248,15 @@ async function utenteCambiato(user) {
     mostraSchermo('scrNonAbilitato');
     return;
   }
-  stato.utente = { uid: user.uid, nome: profilo.nome, ruolo: profilo.ruolo, codice: profilo.codice };
+  // sviluppatore: l'unico che vede "Elenchi e utenti" (lo impongono anche le regole del database)
+  const sviluppatore = profilo.ruolo === 'responsabile' && profilo.sviluppatore === true;
+  stato.utente = { uid: user.uid, nome: profilo.nome, ruolo: profilo.ruolo, codice: profilo.codice, sviluppatore };
   $('barraUtente').textContent = `${profilo.nome} · ${profilo.ruolo === 'responsabile' ? 'Responsabile' : 'Caposquadra'}`;
   mostraSchermo('scrApp');
   avviaCompilazione();
   if (profilo.ruolo === 'responsabile') {
     $('menuResponsabile').hidden = false;
+    document.querySelector('.scheda-btn[data-vista="gestione"]').hidden = !sviluppatore;
     avviaResponsabile();
     mostraVista('arrivati');
   } else {
@@ -301,7 +304,7 @@ $('formSetup').addEventListener('submit', async e => {
     const cred = await createUserWithEmailAndPassword(auth, emailDi(codice), $('setupPassword').value);
     try {
       const batch = writeBatch(db);
-      batch.set(doc(db, 'utenti', cred.user.uid), { nome, codice, ruolo: 'responsabile', attivo: true, creatoIl: serverTimestamp() });
+      batch.set(doc(db, 'utenti', cred.user.uid), { nome, codice, ruolo: 'responsabile', sviluppatore: true, attivo: true, creatoIl: serverTimestamp() });
       batch.set(doc(db, 'config', 'setup'), { fattoIl: serverTimestamp(), da: cred.user.uid });
       await batch.commit();
       utenteCambiato(cred.user); // il profilo ora esiste: rilegge e apre l'app
@@ -673,8 +676,10 @@ function avviaResponsabile() {
   }, err => avviso(`Rapportini non disponibili: ${messaggioErrore(err)}`, 'errore'));
   stato.annulla.push(off);
 
-  const offU = onSnapshot(collection(db, 'utenti'), snap => disegnaUtenti(snap.docs.map(d => ({ uid: d.id, ...d.data() }))));
-  stato.annulla.push(offU);
+  if (stato.utente.sviluppatore) {
+    const offU = onSnapshot(collection(db, 'utenti'), snap => disegnaUtenti(snap.docs.map(d => ({ uid: d.id, ...d.data() }))));
+    stato.annulla.push(offU);
+  }
 
   // anni nell'elenco Convalidati: dal 2026 (inizio del rapportino digitale) all'anno in corso
   const annoOggi = Number(oggiISO().slice(0, 4));
@@ -1309,7 +1314,7 @@ function cartellaPronta() {
 async function aggiornaInfoScrittura() {
   const el = $('infoScrittura');
   if (!el) return;
-  if (!stato.cartellaPronta) { el.innerHTML = '<b>Cartella Excel non collegata</b> (Elenchi e utenti → Cartella dei file Excel).'; return; }
+  if (!stato.cartellaPronta) { el.innerHTML = `<b>Cartella Excel non collegata</b> (${stato.utente?.sviluppatore ? 'Elenchi e utenti → Cartella dei file Excel' : 'barra gialla in alto'}).`; return; }
   try {
     const files = await CartellaExcel.listExcelFiles();
     el.innerHTML = `Scrive nella cartella <b>${esc(CartellaExcel.name())}</b>, che contiene: ${files.length ? files.map(esc).join(', ') : 'nessun file Excel'}.`;
@@ -1612,7 +1617,7 @@ function disegnaUtenti(utenti) {
     <div class="voce">
       <div class="voce-princ">
         <div class="voce-titolo">${esc(u.nome)}</div>
-        <div class="voce-sotto">Codice: ${esc(u.codice)} · ${u.ruolo === 'responsabile' ? 'Responsabile' : 'Caposquadra'}</div>
+        <div class="voce-sotto">Codice: ${esc(u.codice)} · ${u.ruolo === 'responsabile' ? (u.sviluppatore ? 'Responsabile · Sviluppatore' : 'Responsabile') : 'Caposquadra'}</div>
       </div>
       <span class="etichetta ${u.attivo ? 'ok' : 'no'}">${u.attivo ? 'Attivo' : 'Disattivato'}</span>
       ${u.uid === stato.utente.uid ? '' : `<button class="btn piccolo" data-uid="${esc(u.uid)}" data-attivo="${u.attivo ? 1 : 0}">${u.attivo ? 'Disattiva' : 'Riattiva'}</button>
@@ -1670,6 +1675,8 @@ if (EMULATORE) {
   window.__prova = {
     usaCartella: async handle => { await CartellaExcel.useHandle(handle); cartellaPronta(); },
     leggiRapportini: async () => (await getDocs(collection(db, 'rapportini'))).size,
-    modificaRapportino: async (id, campi) => updateDoc(doc(db, 'rapportini', id), campi)
+    modificaRapportino: async (id, campi) => updateDoc(doc(db, 'rapportini', id), campi),
+    scriviElenchi: async () => setDoc(doc(db, 'elenchi', 'automezzi'), { voci: ['PROVA'] }).then(() => 'scritto', e => e.code),
+    modificaUtente: async uid => updateDoc(doc(db, 'utenti', uid), { attivo: false }).then(() => 'scritto', e => e.code)
   };
 }
