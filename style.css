@@ -429,3 +429,6 @@ button.o-p { cursor: pointer; -webkit-tap-highlight-color: transparent; }
 .sola-lettura .operaio.assente .o-cantiere::before { content: "Dalle … Alle …"; white-space: nowrap; }
 .sola-lettura .operaio.assente .o-nome { min-height: 34px; padding-top: 2px; padding-bottom: 2px; }
 .sola-lettura .operaio.assente .corr { padding: 1px 6px; }
+
+/* sotto "Convalida": dove scriverà l'app */
+.info-scrittura { margin: 10px 0 0; padding: 8px 12px; border-radius: 8px; background: var(--evidenza); font-size: .88rem; text-align: right; }

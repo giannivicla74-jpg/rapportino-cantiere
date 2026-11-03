@@ -2,6 +2,11 @@
 // La usano la scritta in fondo alla pagina (con l'elenco "Novità") e il service worker (sw.js)
 // per scaricare la versione nuova.
 self.APP_STORICO = [
+  { versione: '1.6', data: '03/11/2026', novita: [
+    'Sotto \"Convalida\" si vede sempre in quale cartella scriverà l\'app e quali file Excel contiene',
+    'Prima di ogni scrittura l\'app rilegge la cartella collegata (se è stata cambiata usa quella nuova)',
+    'Copia di sicurezza giornaliera controllata dentro la cartella Backup: niente confusione tra cartelle con lo stesso nome'
+  ] },
   { versione: '1.5', data: '03/11/2026', novita: [
     'Pagina 1 del responsabile: con un clic si vedono tutti gli operai dell\'elenco (come sul modulo cartaceo) o solo i presenti',
     'Nella vista completa, accanto a chi non ha la X c\'è \"aggiungi\"; la scelta della vista resta per i rapportini successivi'

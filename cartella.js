@@ -164,5 +164,18 @@ const CartellaExcel = (() => {
     return backupName;
   }
 
-  return { supported, restore, confirmAccess, choose, useHandle, name, exists, listExcelFiles, masterName, readBytes, writeBytes, isOpenInExcel, datedBackup };
+  // C'è già la copia di sicurezza di oggi per questo file, in QUESTA cartella? (guarda dentro Backup:
+  // con un promemoria nel browser due cartelle con lo stesso nome si confondevano)
+  async function hasBackupToday(fileName, label = 'BACKUP') {
+    let backupDir;
+    try { backupDir = await requireDir().getDirectoryHandle('Backup'); } catch (_) { return false; }
+    const dot = fileName.lastIndexOf('.');
+    const d = new Date();
+    const pad = n => String(n).padStart(2, '0');
+    const prefix = `${fileName.slice(0, dot)}_${label}_${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}_`;
+    for await (const [entryName] of backupDir.entries()) if (entryName.startsWith(prefix)) return true;
+    return false;
+  }
+
+  return { supported, restore, confirmAccess, choose, useHandle, name, exists, listExcelFiles, masterName, readBytes, writeBytes, isOpenInExcel, datedBackup, hasBackupToday };
 })();

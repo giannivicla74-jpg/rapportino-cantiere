@@ -699,6 +699,7 @@ function apriRapportino(r) {
   };
   disegnaFronte(r);
   disegnaBlocchi();
+  aggiornaInfoScrittura();
   const conv = r.stato === 'convalidato';
   $('btnConvalida').textContent = conv ? 'Riscrivi su Excel' : 'Convalida e scrivi su Excel';
   $('btnSalvaOre').hidden = conv;
@@ -1113,11 +1114,24 @@ function mostraAvvisoCartella(s) {
     $('btnCartella').dataset.azione = 'scegli';
   }
   $('infoCartella').textContent = 'Cartella non collegata.';
+  aggiornaInfoScrittura();
 }
 function cartellaPronta() {
   stato.cartellaPronta = true;
   $('avvisoCartella').hidden = true;
   $('infoCartella').textContent = `Cartella collegata: ${CartellaExcel.name()}`;
+  aggiornaInfoScrittura();
+}
+
+// Sotto "Convalida": dove scriverà l'app (nome della cartella e file Excel che contiene, per riconoscerla)
+async function aggiornaInfoScrittura() {
+  const el = $('infoScrittura');
+  if (!el) return;
+  if (!stato.cartellaPronta) { el.innerHTML = '<b>Cartella Excel non collegata</b> (Elenchi e utenti → Cartella dei file Excel).'; return; }
+  try {
+    const files = await CartellaExcel.listExcelFiles();
+    el.innerHTML = `Scrive nella cartella <b>${esc(CartellaExcel.name())}</b>, che contiene: ${files.length ? files.map(esc).join(', ') : 'nessun file Excel'}.`;
+  } catch (_) { el.textContent = `Scrive nella cartella ${CartellaExcel.name()}.`; }
 }
 $('btnCartella').onclick = async () => {
   try {
@@ -1131,11 +1145,19 @@ $('btnCambiaCartella').onclick = async () => {
   catch (err) { if (err.name !== 'AbortError') avviso(err.message, 'errore'); }
 };
 async function richiediCartella() {
-  if (stato.cartellaPronta) return true;
   if (!CartellaExcel.supported()) {
     await finestra('Excel non raggiungibile', '<p>Per scrivere su Excel usa il PC dell\'ufficio con Microsoft Edge o Google Chrome.</p>');
     return false;
   }
+  // rilegge ogni volta la cartella salvata: se è stata cambiata (anche da un'altra scheda) si usa quella nuova
+  if (!window.__prova) {
+    const s = await CartellaExcel.restore();
+    if (s === 'pronta' || (s === 'da-confermare' && await CartellaExcel.confirmAccess().catch(() => false))) {
+      cartellaPronta();
+      return true;
+    }
+    mostraAvvisoCartella(s);
+  } else if (stato.cartellaPronta) return true;
   avviso('Collega prima la cartella dei file Excel (barra gialla in alto)', 'errore');
   return false;
 }
@@ -1220,9 +1242,8 @@ $('btnConvalida').onclick = async () => {
 
     if (daScrivere.length) {
       // copia di sicurezza alla prima scrittura del giorno per ogni file
-      const chiaveCopia = `rapp_copia:${CartellaExcel.name()}/${fileName}`;
-      if (ls.get(chiaveCopia) !== oggiISO()) {
-        try { await CartellaExcel.datedBackup(fileName, bytes); ls.set(chiaveCopia, oggiISO()); }
+      if (!await CartellaExcel.hasBackupToday(fileName)) {
+        try { await CartellaExcel.datedBackup(fileName, bytes); }
         catch (e) { throw new Error(`copia di sicurezza non riuscita (${e.message}): Excel non è stato modificato`); }
       }
       const risultato = await ExcelXlsm.writePresenze(bytes, giorno, daScrivere);
