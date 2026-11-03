@@ -397,3 +397,17 @@ button.o-p { cursor: pointer; -webkit-tap-highlight-color: transparent; }
 .percorso details { margin-top: 6px; }
 .percorso summary { cursor: pointer; color: var(--primario); font-weight: 600; }
 .percorso table { margin-top: 6px; }
+
+/* pagina 1 del responsabile: correzioni agli operai */
+.sola-lettura .o-nome { flex-wrap: wrap; row-gap: 0; }
+.operaio.tolto { background: #f6f6f6 !important; }
+.operaio.tolto .o-testo { text-decoration: line-through; text-decoration-thickness: 2px; color: #888; }
+.operaio.tolto .casella-p::after { color: #bbb; }
+.operaio.tolto .o-ora b { color: #aaa; text-decoration: line-through; }
+.operaio.aggiunto { background: #fff8e6 !important; }
+.nota-corr { font-family: Arial, sans-serif; font-style: normal; font-size: .68rem; text-transform: none; color: #8a5a00; background: #fdebc0; border-radius: 8px; padding: 0 6px; }
+.corr { margin-left: auto; font: 600 .72rem Arial, sans-serif; text-transform: none; color: var(--primario); background: none; border: 1px solid #c9d1db; border-radius: 6px; padding: 2px 8px; cursor: pointer; }
+.corr:hover { border-color: var(--primario); }
+@media print { .corr, .correggi-operai { display: none !important; } }
+.correggi-operai { margin-top: 6px; }
+.correggi-operai select { border: 1.5px dashed #9aa3ad; border-radius: 6px; min-height: 40px; font-weight: 600; color: var(--inchiostro); }

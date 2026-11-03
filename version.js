@@ -2,6 +2,11 @@
 // La usano la scritta in fondo alla pagina (con l'elenco "Novità") e il service worker (sw.js)
 // per scaricare la versione nuova.
 self.APP_STORICO = [
+  { versione: '1.3', data: '03/11/2026', novita: [
+    'Il responsabile corregge gli errori del caposquadra nella pagina 1: togli (riga barrata) o rimetti un operaio',
+    'Operaio dimenticato: si aggiunge anche dalla pagina 1 e compare in fondo alla tabella',
+    'Nella riga delle firme resta la traccia: chi ha corretto, quando e cosa'
+  ] },
   { versione: '1.2', data: '03/11/2026', novita: [
     'Dopo la convalida il messaggio dice dove sono stati scritti i dati: cartella, file, foglio, giorno e righe',
     'Si può aprire l\'elenco con la riga Excel di ogni operaio',

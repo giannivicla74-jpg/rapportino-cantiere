@@ -676,7 +676,8 @@ function apriRapportino(r) {
   stato.aperto = {
     id: r.id, dati: r,
     blocchi: (r.blocchi?.length ? structuredClone(r.blocchi) : [bloccoIniziale(r)]),
-    aggiunti: [...(r.operaiAggiunti || [])] // operai aggiunti dall'ufficio nella pagina 2
+    aggiunti: [...(r.operaiAggiunti || [])], // operai non segnati dal caposquadra, aggiunti dall'ufficio
+    tolti: [...(r.operaiTolti || [])]        // operai segnati per sbaglio dal caposquadra, tolti dall'ufficio
   };
   disegnaFronte(r);
   disegnaBlocchi();
@@ -716,14 +717,34 @@ function disegnaFronte(r) {
         <div class="o-ora o-cantiere">ORARIO DI LAVORO IN CANTIERE</div>
         <div class="o-ora o-rientro">ORARIO RIENTRO IN DEPOSITO</div>
       </div>
-      ${(r.operai || []).map((o, i) => `<div class="operaio presente">
-        <div class="o-nome"><span class="o-num">${i + 1}.</span>${esc(o.nome)}</div>
+      ${(r.operai || []).map((o, i) => {
+        const tolto = stato.aperto.tolti.includes(o.nome);
+        return `<div class="operaio presente ${tolto ? 'tolto' : ''}">
+        <div class="o-nome"><span class="o-num">${i + 1}.</span><span class="o-testo">${esc(o.nome)}</span>
+          ${tolto ? '<span class="nota-corr">tolto dall\'ufficio</span>' : ''}
+          <button type="button" class="corr" data-${tolto ? 'rimetti' : 'togli-p1'}="${esc(o.nome)}">${tolto ? 'rimetti' : 'togli'}</button></div>
         <div class="o-p casella-p"></div>
         <div class="o-ora o-partenza"><span class="o-et">Partenza deposito</span><b>${esc(o.partenza) || '…'}</b></div>
         <div class="o-ora o-cantiere"><span class="o-et">Dalle</span><b>${esc(o.dalle) || '…'}</b><span class="o-et">Alle</span><b>${esc(o.alle) || '…'}</b></div>
         <div class="o-ora o-rientro"><span class="o-et">Rientro deposito</span><b>${esc(o.rientro) || '…'}</b></div>
+      </div>`;
+      }).join('')}
+      ${stato.aperto.aggiunti.map((n, i) => `<div class="operaio presente aggiunto">
+        <div class="o-nome"><span class="o-num">${(r.operai || []).length + i + 1}.</span><span class="o-testo">${esc(n)}</span>
+          <span class="nota-corr">aggiunto dall'ufficio</span>
+          <button type="button" class="corr" data-togli-operaio="${esc(n)}">togli</button></div>
+        <div class="o-p casella-p"></div>
+        <div class="o-ora o-partenza"><b>…</b></div><div class="o-ora o-cantiere"><b>…</b></div><div class="o-ora o-rientro"><b>…</b></div>
       </div>`).join('')}
     </div>
+    ${(() => {
+      const presenti = tuttiGliOperai(), liberi = stato.elenchi.operai.filter(n => !presenti.includes(n) && !(r.operai || []).some(o => o.nome === n));
+      return liberi.length ? `<div class="correggi-operai">
+        <select data-aggiungi-p1 aria-label="Aggiungi operaio dimenticato dal caposquadra">
+          <option value="">+ Aggiungi operaio dimenticato dal caposquadra</option>
+          ${liberi.map(n => `<option>${esc(n)}</option>`).join('')}
+        </select></div>` : '';
+    })()}
     <div class="riquadro">
       <div class="r-riga">
         <div class="r-cella largo"><span class="r-et">AUTOMEZZI UTILIZZATI:</span>${testo(Array.isArray(r.automezzi) ? r.automezzi.join('\n') : r.automezzi)}</div>
@@ -743,8 +764,57 @@ function disegnaFronte(r) {
         <div class="r-cella largo"><span class="r-et">Firma Caposquadra:</span><span class="firma">${esc(r.caposquadraNome)} · inviato il ${esc(dataOraIT(r.inviatoIl))}</span></div>
         <div class="r-cella"><span class="r-et">Firma RC:</span><span class="firma">${r.convalidatoDaNome ? `${esc(r.convalidatoDaNome)} · ${esc(dataOraIT(r.convalidatoIl))}` : '<span class="tenue">alla convalida</span>'}</span></div>
       </div>
+      ${correzioniOperai() ? `<div class="r-riga"><div class="r-cella"><span class="r-et">Correzioni operai:</span>
+        <span class="firma">${r.correttoDaNome && !correzioniDaSalvare() ? `${esc(r.correttoDaNome)} · ${esc(dataOraIT(r.correttoIl))}` : `${esc(stato.utente.nome)} <span class="tenue">(da salvare)</span>`}</span>
+        <span class="tenue">${correzioniOperai()}</span></div></div>` : ''}
     </div>`;
 }
+
+// Correzioni dell'ufficio agli operai segnati dal caposquadra (testo breve per la riga delle firme)
+function correzioniOperai() {
+  const { tolti, aggiunti } = stato.aperto;
+  return [tolti.length ? `tolti: ${tolti.join(', ')}` : '', aggiunti.length ? `aggiunti: ${aggiunti.join(', ')}` : ''].filter(Boolean).join(' · ');
+}
+// Le correzioni a schermo sono diverse da quelle salvate nel rapportino?
+function correzioniDaSalvare() {
+  const r = stato.aperto.dati, uguali = (a, b) => JSON.stringify([...a].sort()) === JSON.stringify([...(b || [])].sort());
+  return !uguali(stato.aperto.tolti, r.operaiTolti) || !uguali(stato.aperto.aggiunti, r.operaiAggiunti);
+}
+// Campi da salvare nel rapportino insieme alle ore
+function campiCorrezioni() {
+  const c = { operaiAggiunti: stato.aperto.aggiunti, operaiTolti: stato.aperto.tolti };
+  if (correzioniDaSalvare()) { c.correttoDaNome = stato.utente.nome; c.correttoDaUid = stato.utente.uid; c.correttoIl = serverTimestamp(); }
+  return c;
+}
+function ridisegnaRapportino() {
+  disegnaFronte(stato.aperto.dati);
+  disegnaBlocchi();
+}
+
+// Pagina 1: togli / rimetti un operaio segnato dal caposquadra, aggiungi un operaio dimenticato
+$('dettaglioFronte').addEventListener('click', e => {
+  const { tolti, aggiunti, blocchi } = stato.aperto;
+  const d = e.target.dataset;
+  if (d.togliP1 !== undefined) {
+    if (!tolti.includes(d.togliP1)) tolti.push(d.togliP1);
+    blocchi.forEach(b => { b.operai = b.operai.filter(n => n !== d.togliP1); });
+  } else if (d.rimetti !== undefined) {
+    stato.aperto.tolti = tolti.filter(n => n !== d.rimetti);
+    if (blocchi[0] && !blocchi[0].operai.includes(d.rimetti)) blocchi[0].operai.push(d.rimetti);
+  } else if (d.togliOperaio !== undefined) {
+    stato.aperto.aggiunti = aggiunti.filter(n => n !== d.togliOperaio);
+    blocchi.forEach(b => { b.operai = b.operai.filter(n => n !== d.togliOperaio); });
+  } else return;
+  ridisegnaRapportino();
+});
+$('dettaglioFronte').addEventListener('change', e => {
+  if (e.target.dataset.aggiungiP1 === undefined || !e.target.value) return;
+  const n = e.target.value;
+  if (!stato.aperto.aggiunti.includes(n)) stato.aperto.aggiunti.push(n);
+  const b0 = stato.aperto.blocchi[0];
+  if (b0 && !b0.operai.includes(n)) b0.operai.push(n);
+  ridisegnaRapportino();
+});
 
 function opzioniCommessa(scelta) {
   const voci = [...stato.elenchi.commesse];
@@ -754,7 +824,7 @@ function opzioniCommessa(scelta) {
 
 // Operai del rapportino: quelli segnati dal caposquadra più quelli aggiunti dall'ufficio
 function tuttiGliOperai() {
-  const segnati = (stato.aperto.dati.operai || []).map(o => o.nome);
+  const segnati = (stato.aperto.dati.operai || []).map(o => o.nome).filter(n => !stato.aperto.tolti.includes(n));
   return [...segnati, ...stato.aperto.aggiunti.filter(n => !segnati.includes(n))];
 }
 
@@ -762,7 +832,9 @@ function disegnaBlocchi() {
   const { blocchi, aggiunti } = stato.aperto;
   const presenti = tuttiGliOperai();
   // per il menu "+ Aggiungi operaio": chi è nell'elenco del file Excel ma non ancora nel rapportino
-  const liberi = stato.elenchi.operai.filter(n => !presenti.includes(n));
+  // (chi è stato segnato dal caposquadra e poi tolto non compare: si rimette con "rimetti" nella pagina 1)
+  const segnatiCapo = (stato.aperto.dati.operai || []).map(o => o.nome);
+  const liberi = stato.elenchi.operai.filter(n => !presenti.includes(n) && !segnatiCapo.includes(n));
   $('blocchi').innerHTML = blocchi.map((b, i) => `
     <div class="blocco" data-b="${i}">
       <div class="blocco-testa">
@@ -857,7 +929,7 @@ $('blocchi').addEventListener('change', e => {
     const b = stato.aperto.blocchi[parseInt(e.target.closest('.blocco').dataset.b)];
     if (!stato.aperto.aggiunti.includes(n)) stato.aperto.aggiunti.push(n);
     if (!b.operai.includes(n)) b.operai.push(n);
-    disegnaBlocchi();
+    ridisegnaRapportino();
     return;
   }
   if (e.target.tagName === 'SELECT') e.target.dispatchEvent(new Event('input', { bubbles: true }));
@@ -869,7 +941,7 @@ $('blocchi').addEventListener('click', e => {
     e.preventDefault();
     stato.aperto.aggiunti = stato.aperto.aggiunti.filter(n => n !== togli);
     stato.aperto.blocchi.forEach(b => { b.operai = b.operai.filter(n => n !== togli); });
-    disegnaBlocchi();
+    ridisegnaRapportino();
     return;
   }
   const az = e.target.dataset.azione;
@@ -937,7 +1009,10 @@ function aggiornaRiepilogo() {
 
 $('btnSalvaOre').onclick = async () => {
   try {
-    await updateDoc(doc(db, 'rapportini', stato.aperto.id), { blocchi: stato.aperto.blocchi, operaiAggiunti: stato.aperto.aggiunti });
+    const campi = { blocchi: stato.aperto.blocchi, ...campiCorrezioni() };
+    await updateDoc(doc(db, 'rapportini', stato.aperto.id), campi);
+    Object.assign(stato.aperto.dati, campi, campi.correttoIl ? { correttoIl: new Date() } : {});
+    disegnaFronte(stato.aperto.dati);
     avviso('Ore salvate (il rapportino resta tra gli arrivati)', 'ok');
   } catch (err) { avviso(messaggioErrore(err), 'errore'); }
 };
@@ -1094,7 +1169,7 @@ $('btnConvalida').onclick = async () => {
     await updateDoc(doc(db, 'rapportini', dati.id), {
       stato: 'convalidato',
       blocchi: stato.aperto.blocchi,
-      operaiAggiunti: stato.aperto.aggiunti,
+      ...campiCorrezioni(),
       convalidatoIl: serverTimestamp(),
       convalidatoDaUid: stato.utente.uid,
       convalidatoDaNome: stato.utente.nome,
