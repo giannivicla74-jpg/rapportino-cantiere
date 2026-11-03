@@ -2,6 +2,11 @@
 // La usano la scritta in fondo alla pagina (con l'elenco "Novità") e il service worker (sw.js)
 // per scaricare la versione nuova.
 self.APP_STORICO = [
+  { versione: '1.8', data: '03/11/2026', novita: [
+    'Convalidati organizzati per anno, mese e settimana (lunedì-domenica)',
+    'Ogni rapportino va nel periodo della sua data; per ogni mese e settimana si vede quanti sono',
+    'I mesi si aprono e chiudono con un clic; il più recente parte aperto'
+  ] },
   { versione: '1.7', data: '03/11/2026', novita: [
     'Elenco Convalidati: spunta verde \"Scritto in Excel\" con file e giorno (bordo verde a sinistra)',
     'Se un rapportino non risulta scritto compare \"Non scritto in Excel\" in rosso',

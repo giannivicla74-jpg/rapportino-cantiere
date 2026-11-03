@@ -438,3 +438,21 @@ button.o-p { cursor: pointer; -webkit-tap-highlight-color: transparent; }
 .spunta-excel { margin-top: 4px; font-size: .85rem; font-weight: 600; color: var(--ok); display: flex; align-items: center; gap: 6px; overflow-wrap: anywhere; }
 .spunta-excel .spunta { display: inline-grid; place-items: center; width: 20px; height: 20px; border-radius: 50%; background: var(--ok); color: #fff; font-size: .8rem; flex: none; }
 .spunta-excel.no { color: var(--pericolo); }
+
+/* Convalidati: anno -> mese -> settimana */
+.riga-anno { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+.riga-anno select { width: auto; min-width: 110px; }
+.periodi { display: flex; flex-direction: column; gap: 10px; }
+.periodo-mese { background: var(--carta); border: 1px solid var(--bordo); border-radius: var(--raggio); }
+.periodo-mese > summary {
+  display: flex; align-items: center; justify-content: space-between; gap: 10px; cursor: pointer; list-style: none;
+  padding: 12px 16px; font-weight: 800; font-size: 1.05rem;
+}
+.periodo-mese > summary::-webkit-details-marker { display: none; }
+.periodo-mese > summary::before { content: "▸"; color: var(--testo-tenue); margin-right: 4px; transition: transform .15s; }
+.periodo-mese[open] > summary::before { transform: rotate(90deg); }
+.periodo-nome { flex: 1; }
+.periodo-conta { font-size: .8rem; font-weight: 700; padding: 2px 10px; border-radius: 10px; background: var(--evidenza); color: var(--testo-tenue); white-space: nowrap; }
+.periodo-settimana { padding: 4px 14px 14px; }
+.settimana-titolo { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 8px 0 6px; border-top: 1px dashed var(--bordo); font-size: .92rem; }
+.settimana-titolo span:not(.periodo-conta) { color: var(--testo-tenue); flex: 1; }

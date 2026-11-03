@@ -204,11 +204,14 @@
       <!-- ========== CONVALIDATI ========== -->
       <div class="vista" id="vistaConvalidati" hidden>
         <h2>Rapportini convalidati</h2>
-        <label class="campo in-linea">
-          <span>Mese</span>
-          <input id="meseConvalidati" type="month">
-        </label>
-        <div id="listaConvalidati" class="elenco"></div>
+        <div class="riga-anno">
+          <label class="campo in-linea">
+            <span>Anno</span>
+            <select id="annoConvalidati"></select>
+          </label>
+          <span class="tenue" id="totaleConvalidati"></span>
+        </div>
+        <div id="listaConvalidati" class="periodi"></div>
       </div>
 
       <!-- ========== DETTAGLIO (pagina 2 del modulo) ========== -->

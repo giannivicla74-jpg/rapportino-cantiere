@@ -616,7 +616,11 @@ function avviaResponsabile() {
   const offU = onSnapshot(collection(db, 'utenti'), snap => disegnaUtenti(snap.docs.map(d => ({ uid: d.id, ...d.data() }))));
   stato.annulla.push(offU);
 
-  if (!$('meseConvalidati').value) $('meseConvalidati').value = oggiISO().slice(0, 7);
+  // anni nell'elenco Convalidati: dal 2026 (inizio del rapportino digitale) all'anno in corso
+  const annoOggi = Number(oggiISO().slice(0, 4));
+  if (!$('annoConvalidati').options.length) {
+    for (let a = annoOggi; a >= Math.min(2026, annoOggi); a--) $('annoConvalidati').add(new Option(a, a));
+  }
   if (!responsabileAvviato) {
     responsabileAvviato = true;
     CartellaExcel.restore().then(s => (s === 'pronta' ? cartellaPronta() : mostraAvvisoCartella(s)));
@@ -655,17 +659,77 @@ $('listaArrivati').addEventListener('click', e => {
 
 let offConvalidati = null;
 let convalidati = [];
+// Elenco Convalidati per ANNO → MESE → SETTIMANA (lunedì-domenica), in base alla DATA del rapportino
+const mesiAperti = new Set(); // mesi aperti dall'utente (restano aperti quando l'elenco si aggiorna)
+
 function caricaConvalidati() {
   if (offConvalidati) offConvalidati();
-  const mese = $('meseConvalidati').value;
-  if (!mese) return;
-  offConvalidati = onSnapshot(query(collection(db, 'rapportini'), where('stato', '==', 'convalidato'), where('mese', '==', mese)), snap => {
-    convalidati = snap.docs.map(d => ({ id: d.id, ...d.data() })).sort((a, b) => (b.data || '').localeCompare(a.data || ''));
-    $('listaConvalidati').innerHTML = convalidati.length ? convalidati.map(voceRapportino).join('') : '<div class="nessuno">Nessun rapportino convalidato in questo mese</div>';
+  const anno = $('annoConvalidati').value;
+  if (!anno) return;
+  const mesi = Array.from({ length: 12 }, (_, i) => `${anno}-${String(i + 1).padStart(2, '0')}`);
+  offConvalidati = onSnapshot(query(collection(db, 'rapportini'), where('stato', '==', 'convalidato'), where('mese', 'in', mesi)), snap => {
+    convalidati = snap.docs.map(d => ({ id: d.id, ...d.data() }))
+      .sort((a, b) => (b.data || '').localeCompare(a.data || '') || ((b.convalidatoIl?.seconds || 0) - (a.convalidatoIl?.seconds || 0)));
+    disegnaConvalidati();
   }, err => avviso(messaggioErrore(err), 'errore'));
   stato.annulla.push(() => offConvalidati && offConvalidati());
 }
-$('meseConvalidati').addEventListener('change', caricaConvalidati);
+$('annoConvalidati').addEventListener('change', () => { mesiAperti.clear(); caricaConvalidati(); });
+
+// Settimana ISO (lunedì-domenica): numero e lunedì della settimana di una data "AAAA-MM-GG"
+function settimanaDi(iso) {
+  const [a, m, g] = iso.split('-').map(Number);
+  const d = new Date(Date.UTC(a, m - 1, g));
+  const giornoSett = d.getUTCDay() || 7; // lunedì = 1 … domenica = 7
+  const lunedi = new Date(d); lunedi.setUTCDate(d.getUTCDate() - giornoSett + 1);
+  const giovedi = new Date(d); giovedi.setUTCDate(d.getUTCDate() + 4 - giornoSett);
+  const inizioAnno = new Date(Date.UTC(giovedi.getUTCFullYear(), 0, 1));
+  const numero = Math.ceil(((giovedi - inizioAnno) / 86400000 + 1) / 7);
+  return { numero, lunedi: lunedi.toISOString().slice(0, 10) };
+}
+const ggmm = d => d.toISOString().slice(8, 10) + '/' + d.toISOString().slice(5, 7);
+
+function disegnaConvalidati() {
+  const box = $('listaConvalidati');
+  const anno = $('annoConvalidati').value;
+  $('totaleConvalidati').textContent = convalidati.length ? `${convalidati.length} rapportini nel ${anno}` : '';
+  if (!convalidati.length) { box.innerHTML = `<div class="nessuno">Nessun rapportino convalidato nel ${esc(anno)}</div>`; return; }
+
+  // raggruppa: mese -> settimana (chiave = lunedì) -> rapportini
+  const perMese = new Map();
+  for (const r of convalidati) {
+    const mese = String(r.data || '').slice(0, 7);
+    if (!perMese.has(mese)) perMese.set(mese, new Map());
+    const s = settimanaDi(r.data);
+    const sett = perMese.get(mese);
+    if (!sett.has(s.lunedi)) sett.set(s.lunedi, { numero: s.numero, voci: [] });
+    sett.get(s.lunedi).voci.push(r);
+  }
+  const mesiOrdinati = [...perMese.keys()].sort().reverse();
+  if (!mesiAperti.size) mesiAperti.add(mesiOrdinati[0]); // il mese più recente parte aperto
+
+  box.innerHTML = mesiOrdinati.map(mese => {
+    const settimane = [...perMese.get(mese).entries()].sort((a, b) => b[0].localeCompare(a[0]));
+    const totale = settimane.reduce((s, [, x]) => s + x.voci.length, 0);
+    const [a, m] = mese.split('-').map(Number);
+    return `<details class="periodo-mese" data-mese="${mese}" ${mesiAperti.has(mese) ? 'open' : ''}>
+      <summary><span class="periodo-nome">${MESI[m - 1]} ${a}</span><span class="periodo-conta">${totale} rapportin${totale === 1 ? 'o' : 'i'}</span></summary>
+      ${settimane.map(([lunedi, s]) => {
+        const l = new Date(lunedi + 'T00:00:00Z'), dom = new Date(l); dom.setUTCDate(l.getUTCDate() + 6);
+        return `<div class="periodo-settimana">
+          <div class="settimana-titolo"><b>Settimana ${s.numero}</b><span>lun ${ggmm(l)} – dom ${ggmm(dom)}</span><span class="periodo-conta">${s.voci.length}</span></div>
+          <div class="elenco">${s.voci.map(voceRapportino).join('')}</div>
+        </div>`;
+      }).join('')}
+    </details>`;
+  }).join('');
+}
+// ricorda quali mesi sono aperti, così restano aperti quando arriva un nuovo rapportino
+$('listaConvalidati').addEventListener('toggle', e => {
+  const d = e.target.closest('.periodo-mese');
+  if (!d) return;
+  if (d.open) mesiAperti.add(d.dataset.mese); else mesiAperti.delete(d.dataset.mese);
+}, true);
 $('listaConvalidati').addEventListener('click', e => {
   const v = e.target.closest('.voce');
   if (v) apriRapportino(convalidati.find(r => r.id === v.dataset.id));
