@@ -78,7 +78,7 @@ function messaggioErrore(err) {
   if (/invalid-credential|wrong-password|user-not-found|invalid-email/.test(c)) return 'Codice o password errati';
   if (/network-request-failed|unavailable/.test(c)) return 'Nessuna connessione a internet: riprova quando c\'è campo';
   if (/too-many-requests/.test(c)) return 'Troppi tentativi: aspetta qualche minuto e riprova';
-  if (/email-already-in-use/.test(c)) return 'Questo codice utente esiste già: scegline un altro';
+  if (/email-already-in-use/.test(c)) return 'Questo codice utente esiste già (o apparteneva a un utente eliminato): scegline un altro';
   if (/weak-password/.test(c)) return 'Password troppo corta: almeno 6 caratteri';
   if (/permission-denied/.test(c)) return 'Operazione non permessa per questo utente';
   if (/operation-not-allowed/.test(c)) return 'Accesso con password non attivato in Firebase (vedi la guida)';
@@ -1612,10 +1612,22 @@ function disegnaUtenti(utenti) {
         <div class="voce-sotto">Codice: ${esc(u.codice)} · ${u.ruolo === 'responsabile' ? 'Responsabile' : 'Caposquadra'}</div>
       </div>
       <span class="etichetta ${u.attivo ? 'ok' : 'no'}">${u.attivo ? 'Attivo' : 'Disattivato'}</span>
-      ${u.uid === stato.utente.uid ? '' : `<button class="btn piccolo" data-uid="${esc(u.uid)}" data-attivo="${u.attivo ? 1 : 0}">${u.attivo ? 'Disattiva' : 'Riattiva'}</button>`}
+      ${u.uid === stato.utente.uid ? '' : `<button class="btn piccolo" data-uid="${esc(u.uid)}" data-attivo="${u.attivo ? 1 : 0}">${u.attivo ? 'Disattiva' : 'Riattiva'}</button>
+      <button class="btn piccolo pericolo" data-elimina="${esc(u.uid)}" data-nome="${esc(u.nome)}" data-codice="${esc(u.codice)}">Elimina</button>`}
     </div>`).join('');
 }
 $('listaUtenti').addEventListener('click', async e => {
+  const el = e.target.closest('[data-elimina]');
+  if (el) {
+    const ok = await conferma('Eliminare l\'utente?',
+      `<p><b>${esc(el.dataset.nome)}</b> (codice <b>${esc(el.dataset.codice)}</b>) sparirà dall'elenco e non potrà più entrare nell'app.</p>
+       <p>I rapportini che ha già inviato restano, con il suo nome.</p>
+       <p>Il codice <b>${esc(el.dataset.codice)}</b> non si potrà riusare per un utente nuovo: se serve solo bloccarlo per un periodo, usa "Disattiva".</p>`, 'Elimina');
+    if (!ok) return;
+    try { await deleteDoc(doc(db, 'utenti', el.dataset.elimina)); avviso('Utente eliminato', 'ok'); }
+    catch (err) { avviso(messaggioErrore(err), 'errore'); }
+    return;
+  }
   const b = e.target.closest('[data-uid]');
   if (!b) return;
   const attiva = b.dataset.attivo !== '1';

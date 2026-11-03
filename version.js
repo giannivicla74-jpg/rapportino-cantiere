@@ -2,6 +2,12 @@
 // La usano la scritta in fondo alla pagina (con l'elenco "Novità") e il service worker (sw.js)
 // per scaricare la versione nuova.
 self.APP_STORICO = [
+  { versione: '2.7', data: '03/11/2026', novita: [
+    'Elenchi e utenti: nuovo tasto \"Elimina\" accanto a Disattiva / Riattiva',
+    'L\'utente eliminato sparisce dall\'elenco e non può più entrare; i rapportini che ha inviato restano',
+    'Il codice di un utente eliminato non si può riusare per uno nuovo',
+    'Non si può eliminare sé stessi'
+  ] },
   { versione: '2.6', data: '03/11/2026', novita: [
     'Telefono in verticale: l\'intestazione \"COGNOME E NOME\" della tabella si legge intera (prima era tagliata)'
   ] },
