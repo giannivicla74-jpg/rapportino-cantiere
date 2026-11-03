@@ -711,6 +711,77 @@ function apriRapportino(r) {
 }
 $('btnTornaElenco').onclick = () => mostraVista(stato.aperto?.dati?.stato === 'convalidato' ? 'convalidati' : 'arrivati');
 
+// Tabella operai della pagina 1 vista dal responsabile.
+// "Solo i presenti": chi ha la X più chi è stato aggiunto dall'ufficio.
+// "Tutti": l'elenco completo del file Excel come sul modulo cartaceo; chi non ha la X ha la casella vuota e "aggiungi".
+let mostraTuttiOperai = ls.get('rapp_mostra_tutti') === true;
+
+function tabellaOperaiFronte(r) {
+  const { tolti, aggiunti } = stato.aperto;
+  const segnati = r.operai || [];
+  const rigaSegnato = (o, num) => {
+    const tolto = tolti.includes(o.nome);
+    return `<div class="operaio presente ${tolto ? 'tolto' : ''}">
+      <div class="o-nome"><span class="o-num">${num}.</span><span class="o-testo">${esc(o.nome)}</span>
+        ${tolto ? '<span class="nota-corr">tolto dall\'ufficio</span>' : ''}
+        <button type="button" class="corr" data-${tolto ? 'rimetti' : 'togli-p1'}="${esc(o.nome)}">${tolto ? 'rimetti' : 'togli'}</button></div>
+      <div class="o-p casella-p"></div>
+      <div class="o-ora o-partenza"><span class="o-et">Partenza deposito</span><b>${esc(o.partenza) || '…'}</b></div>
+      <div class="o-ora o-cantiere"><span class="o-et">Dalle</span><b>${esc(o.dalle) || '…'}</b><span class="o-et">Alle</span><b>${esc(o.alle) || '…'}</b></div>
+      <div class="o-ora o-rientro"><span class="o-et">Rientro deposito</span><b>${esc(o.rientro) || '…'}</b></div>
+    </div>`;
+  };
+  const rigaAggiunto = (n, num) => `<div class="operaio presente aggiunto">
+      <div class="o-nome"><span class="o-num">${num}.</span><span class="o-testo">${esc(n)}</span>
+        <span class="nota-corr">aggiunto dall'ufficio</span>
+        <button type="button" class="corr" data-togli-operaio="${esc(n)}">togli</button></div>
+      <div class="o-p casella-p"></div>
+      <div class="o-ora o-partenza"><b>…</b></div><div class="o-ora o-cantiere"><b>…</b></div><div class="o-ora o-rientro"><b>…</b></div>
+    </div>`;
+  const rigaVuota = (n, num) => `<div class="operaio assente">
+      <div class="o-nome"><span class="o-num">${num}.</span><span class="o-testo">${esc(n)}</span>
+        <button type="button" class="corr" data-aggiungi-riga="${esc(n)}">aggiungi</button></div>
+      <div class="o-p casella-p"></div>
+      <div class="o-ora o-partenza"><b>…</b></div><div class="o-ora o-cantiere"><span class="tenue">Dalle … Alle …</span></div><div class="o-ora o-rientro"><b>…</b></div>
+    </div>`;
+
+  let righe;
+  if (mostraTuttiOperai && stato.elenchi.operai.length) {
+    // ordine del file Excel; in fondo eventuali nomi del rapportino che non sono più nell'elenco
+    const nomi = [...stato.elenchi.operai, ...segnati.map(o => o.nome).filter(n => !stato.elenchi.operai.includes(n))];
+    righe = nomi.map((n, i) => {
+      const o = segnati.find(x => x.nome === n);
+      return o ? rigaSegnato(o, i + 1) : aggiunti.includes(n) ? rigaAggiunto(n, i + 1) : rigaVuota(n, i + 1);
+    }).join('');
+  } else {
+    righe = segnati.map((o, i) => rigaSegnato(o, i + 1)).join('') +
+      aggiunti.map((n, i) => rigaAggiunto(n, segnati.length + i + 1)).join('');
+  }
+
+  const presenti = tuttiGliOperai();
+  const liberi = stato.elenchi.operai.filter(n => !presenti.includes(n) && !segnati.some(o => o.nome === n));
+  return `<div class="vista-operai">
+      <button type="button" class="btn piccolo" data-mostra-tutti>${mostraTuttiOperai
+        ? 'Mostra solo i presenti'
+        : `Mostra tutti gli operai (${stato.elenchi.operai.length})`}</button>
+      <span class="tenue">${presenti.length} presenti</span>
+    </div>
+    <div class="tab-operai sola-lettura">
+      <div class="operaio testa">
+        <div class="o-nome">COGNOME E NOME</div><div class="o-p">P</div>
+        <div class="o-ora o-partenza">ORARIO PARTENZA DA DEPOSITO</div>
+        <div class="o-ora o-cantiere">ORARIO DI LAVORO IN CANTIERE</div>
+        <div class="o-ora o-rientro">ORARIO RIENTRO IN DEPOSITO</div>
+      </div>
+      ${righe}
+    </div>
+    ${!mostraTuttiOperai && liberi.length ? `<div class="correggi-operai">
+      <select data-aggiungi-p1 aria-label="Aggiungi operaio dimenticato dal caposquadra">
+        <option value="">+ Aggiungi operaio dimenticato dal caposquadra</option>
+        ${liberi.map(n => `<option>${esc(n)}</option>`).join('')}
+      </select></div>` : ''}`;
+}
+
 // Pagina 1 in sola lettura, con la stessa grafica del modulo
 function disegnaFronte(r) {
   const val = v => esc(v) || '&nbsp;';
@@ -728,41 +799,7 @@ function disegnaFronte(r) {
         <div class="r-cella"><span class="r-et">Responsabile di Commessa:</span><div class="r-valore">${val(r.responsabileCommessa)}</div></div>
       </div>
     </div>
-    <div class="tab-operai sola-lettura">
-      <div class="operaio testa">
-        <div class="o-nome">COGNOME E NOME</div><div class="o-p">P</div>
-        <div class="o-ora o-partenza">ORARIO PARTENZA DA DEPOSITO</div>
-        <div class="o-ora o-cantiere">ORARIO DI LAVORO IN CANTIERE</div>
-        <div class="o-ora o-rientro">ORARIO RIENTRO IN DEPOSITO</div>
-      </div>
-      ${(r.operai || []).map((o, i) => {
-        const tolto = stato.aperto.tolti.includes(o.nome);
-        return `<div class="operaio presente ${tolto ? 'tolto' : ''}">
-        <div class="o-nome"><span class="o-num">${i + 1}.</span><span class="o-testo">${esc(o.nome)}</span>
-          ${tolto ? '<span class="nota-corr">tolto dall\'ufficio</span>' : ''}
-          <button type="button" class="corr" data-${tolto ? 'rimetti' : 'togli-p1'}="${esc(o.nome)}">${tolto ? 'rimetti' : 'togli'}</button></div>
-        <div class="o-p casella-p"></div>
-        <div class="o-ora o-partenza"><span class="o-et">Partenza deposito</span><b>${esc(o.partenza) || '…'}</b></div>
-        <div class="o-ora o-cantiere"><span class="o-et">Dalle</span><b>${esc(o.dalle) || '…'}</b><span class="o-et">Alle</span><b>${esc(o.alle) || '…'}</b></div>
-        <div class="o-ora o-rientro"><span class="o-et">Rientro deposito</span><b>${esc(o.rientro) || '…'}</b></div>
-      </div>`;
-      }).join('')}
-      ${stato.aperto.aggiunti.map((n, i) => `<div class="operaio presente aggiunto">
-        <div class="o-nome"><span class="o-num">${(r.operai || []).length + i + 1}.</span><span class="o-testo">${esc(n)}</span>
-          <span class="nota-corr">aggiunto dall'ufficio</span>
-          <button type="button" class="corr" data-togli-operaio="${esc(n)}">togli</button></div>
-        <div class="o-p casella-p"></div>
-        <div class="o-ora o-partenza"><b>…</b></div><div class="o-ora o-cantiere"><b>…</b></div><div class="o-ora o-rientro"><b>…</b></div>
-      </div>`).join('')}
-    </div>
-    ${(() => {
-      const presenti = tuttiGliOperai(), liberi = stato.elenchi.operai.filter(n => !presenti.includes(n) && !(r.operai || []).some(o => o.nome === n));
-      return liberi.length ? `<div class="correggi-operai">
-        <select data-aggiungi-p1 aria-label="Aggiungi operaio dimenticato dal caposquadra">
-          <option value="">+ Aggiungi operaio dimenticato dal caposquadra</option>
-          ${liberi.map(n => `<option>${esc(n)}</option>`).join('')}
-        </select></div>` : '';
-    })()}
+    ${tabellaOperaiFronte(r)}
     <div class="riquadro">
       <div class="r-riga">
         <div class="r-cella largo"><span class="r-et">AUTOMEZZI UTILIZZATI:</span>${testo(Array.isArray(r.automezzi) ? r.automezzi.join('\n') : r.automezzi)}</div>
@@ -813,7 +850,18 @@ function ridisegnaRapportino() {
 $('dettaglioFronte').addEventListener('click', e => {
   const { tolti, aggiunti, blocchi } = stato.aperto;
   const d = e.target.dataset;
-  if (d.togliP1 !== undefined) {
+  if (d.mostraTutti !== undefined) {
+    // un clic: tutti gli operai dell'elenco <-> solo i presenti (la scelta resta per i prossimi rapportini)
+    mostraTuttiOperai = !mostraTuttiOperai;
+    ls.set('rapp_mostra_tutti', mostraTuttiOperai);
+    disegnaFronte(stato.aperto.dati);
+    return;
+  }
+  if (d.aggiungiRiga !== undefined) {
+    // operaio senza X trovato nell'elenco completo: aggiunto dall'ufficio e messo nel primo blocco ore
+    if (!aggiunti.includes(d.aggiungiRiga)) aggiunti.push(d.aggiungiRiga);
+    if (blocchi[0] && !blocchi[0].operai.includes(d.aggiungiRiga)) blocchi[0].operai.push(d.aggiungiRiga);
+  } else if (d.togliP1 !== undefined) {
     if (!tolti.includes(d.togliP1)) tolti.push(d.togliP1);
     blocchi.forEach(b => { b.operai = b.operai.filter(n => n !== d.togliP1); });
   } else if (d.rimetti !== undefined) {

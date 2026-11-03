@@ -420,3 +420,12 @@ button.o-p { cursor: pointer; -webkit-tap-highlight-color: transparent; }
   background: #1f3a5f; color: #fff; box-shadow: 0 4px 18px rgba(0, 0, 0, .3);
 }
 .barra-aggiorna .btn.primario { background: #fff; color: #1f3a5f; border-color: #fff; }
+
+/* pagina 1 del responsabile: vista "tutti gli operai" */
+.vista-operai { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; margin: 10px 0 6px; }
+.operaio.assente .o-testo { color: #666; }
+.operaio.assente .o-ora b { color: #bbb; }
+@media print { .vista-operai { display: none !important; } }
+.sola-lettura .operaio.assente .o-cantiere::before { content: "Dalle … Alle …"; white-space: nowrap; }
+.sola-lettura .operaio.assente .o-nome { min-height: 34px; padding-top: 2px; padding-bottom: 2px; }
+.sola-lettura .operaio.assente .corr { padding: 1px 6px; }
