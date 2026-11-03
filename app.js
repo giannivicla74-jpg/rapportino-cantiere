@@ -418,7 +418,7 @@ function riempiCapisquadra() {
   aggiornaFirmaCapo();
 }
 function aggiornaFirmaCapo() {
-  if (!compilaUfficio()) { $('firmaCapo').textContent = `${stato.utente.nome} (registrata all'invio)`; return; }
+  if (!compilaUfficio()) { $('firmaCapo').textContent = stato.utente.nome; return; }
   const capo = $('rCaposquadraScelta').value;
   $('firmaCapo').textContent = `${capo || '…'} · compilato dall'ufficio (${stato.utente.nome})`;
 }
