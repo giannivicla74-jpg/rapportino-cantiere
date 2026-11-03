@@ -319,9 +319,28 @@ const chiaveBozza = () => `rapp_bozza_${stato.utente?.uid}`;
 const chiaveCoda = () => `rapp_coda_${stato.utente?.uid}`;
 const CAMPI_TESTO = { localita: 'rLocalita', responsabile: 'rResponsabile', mensaDalle: 'rMensaDalle', mensaAlle: 'rMensaAlle', lavorazioni: 'rLavorazioni', notizie: 'rNotizie', controlli: 'rControlli' };
 
+// Il caposquadra è chi è entrato; se compila l'ufficio (responsabile, es. copiando un cartaceo) lo sceglie dall'elenco operai
+const compilaUfficio = () => stato.utente?.ruolo === 'responsabile';
+
+function riempiCapisquadra() {
+  const sel = $('rCaposquadraScelta');
+  const attuale = sel.value || ls.get(chiaveBozza())?.caposquadra || '';
+  const voci = [...stato.elenchi.operai];
+  if (attuale && !voci.includes(attuale)) voci.unshift(attuale);
+  sel.innerHTML = '<option value="">— Scegli il caposquadra —</option>' + voci.map(n => `<option ${n === attuale ? 'selected' : ''}>${esc(n)}</option>`).join('');
+  aggiornaFirmaCapo();
+}
+function aggiornaFirmaCapo() {
+  if (!compilaUfficio()) { $('firmaCapo').textContent = `${stato.utente.nome} (registrata all'invio)`; return; }
+  const capo = $('rCaposquadraScelta').value;
+  $('firmaCapo').textContent = `${capo || '…'} · compilato dall'ufficio (${stato.utente.nome})`;
+}
+
 function avviaCompilazione() {
   $('rCaposquadra').value = stato.utente.nome;
-  $('firmaCapo').textContent = `${stato.utente.nome} (registrata all'invio)`;
+  $('rCaposquadra').hidden = compilaUfficio();
+  $('rCaposquadraScelta').hidden = !compilaUfficio();
+  aggiornaFirmaCapo();
   caricaBozza();
   const off = onSnapshot(doc(db, 'elenchi', 'correnti'), snap => {
     const d = snap.exists() ? snap.data() : {};
@@ -329,6 +348,7 @@ function avviaCompilazione() {
     $('erroreElenchi').hidden = stato.elenchi.operai.length > 0;
     $('erroreElenchi').textContent = 'Gli elenchi di operai e commesse non sono ancora stati caricati dall\'ufficio (Elenchi e utenti > Aggiorna elenchi).';
     riempiCommesse();
+    riempiCapisquadra();
     disegnaOperai();
     mostraInfoElenchi();
   }, err => avviso(`Elenchi non disponibili: ${messaggioErrore(err)}`, 'errore'));
@@ -471,7 +491,7 @@ $('btnApplicaTutti').onclick = () => {
 // Bozza sul telefono finché il rapportino non viene inviato (se si chiude l'app non si perde il lavoro)
 function salvaBozza() {
   if (!stato.utente) return;
-  const b = { commessa: $('rCommessa').value, data: $('rData').value, presenti: Object.fromEntries(stato.presenti), automezzi: [...stato.mezziScelti] };
+  const b = { commessa: $('rCommessa').value, data: $('rData').value, presenti: Object.fromEntries(stato.presenti), automezzi: [...stato.mezziScelti], caposquadra: $('rCaposquadraScelta').value };
   for (const [k, id] of Object.entries(CAMPI_TESTO)) b[k] = $(id).value;
   ls.set(chiaveBozza(), b);
 }
@@ -480,6 +500,8 @@ function caricaBozza() {
   $('rData').value = b.data || oggiISO();
   for (const [k, id] of Object.entries(CAMPI_TESTO)) $(id).value = b[k] || '';
   stato.presenti = new Map(Object.entries(b.presenti || {}));
+  $('rCaposquadraScelta').value = '';
+  riempiCapisquadra();
   stato.mezziScelti = new Set(Array.isArray(b.automezzi) ? b.automezzi : []);
   riempiCommesse();
   disegnaOperai();
@@ -494,6 +516,7 @@ function svuotaModulo() {
 }
 ['rCommessa', 'rData', ...Object.values(CAMPI_TESTO)].forEach(id => $(id).addEventListener('input', salvaBozza));
 $('rCommessa').addEventListener('change', salvaBozza);
+$('rCaposquadraScelta').addEventListener('change', () => { salvaBozza(); aggiornaFirmaCapo(); });
 
 $('btnSvuota').onclick = async () => {
   if (await conferma('Svuotare il rapportino?', '<p>Verranno tolti tutti i dati scritti finora.</p>', 'Svuota')) svuotaModulo();
@@ -505,6 +528,7 @@ $('formRapportino').addEventListener('submit', async e => {
   const data = $('rData').value;
   const errori = [];
   if (!commessa) errori.push('scegli la <b>commessa</b>');
+  if (compilaUfficio() && !$('rCaposquadraScelta').value) errori.push('scegli il <b>caposquadra</b>');
   if (!data) errori.push('scrivi la <b>data</b>');
   if (stato.presenti.size === 0) errori.push('segna almeno un <b>operaio presente</b> (casella P)');
   if (data && data > oggiISO()) errori.push('la data è nel futuro: controlla');
@@ -530,7 +554,9 @@ $('formRapportino').addEventListener('submit', async e => {
     localita: $('rLocalita').value.trim(),
     responsabileCommessa: $('rResponsabile').value.trim(),
     caposquadraUid: stato.utente.uid,
-    caposquadraNome: stato.utente.nome,
+    caposquadraNome: compilaUfficio() ? $('rCaposquadraScelta').value : stato.utente.nome,
+    compilatoDaUfficio: compilaUfficio(),
+    compilatoDaNome: stato.utente.nome,
     operai,
     automezzi: stato.automezzi.filter(m => stato.mezziScelti.has(m)), // nell'ordine dell'elenco
     // testi dell'intestazione in vigore al momento dell'invio (es. la revisione del modulo)
@@ -889,7 +915,8 @@ function disegnaFronte(r) {
     </div>
     <div class="riquadro">
       <div class="r-riga">
-        <div class="r-cella largo"><span class="r-et">Firma Caposquadra:</span><span class="firma">${esc(r.caposquadraNome)} · inviato il ${esc(dataOraIT(r.inviatoIl))}</span></div>
+        <div class="r-cella largo"><span class="r-et">Firma Caposquadra:</span><span class="firma">${esc(r.caposquadraNome)} · inviato il ${esc(dataOraIT(r.inviatoIl))}</span>${r.compilatoDaUfficio
+          ? `<span class="tenue">compilato dall'ufficio (${esc(r.compilatoDaNome || '')})</span>` : ''}</div>
         <div class="r-cella"><span class="r-et">Firma RC:</span><span class="firma">${r.convalidatoDaNome ? `${esc(r.convalidatoDaNome)} · ${esc(dataOraIT(r.convalidatoIl))}` : '<span class="tenue">alla convalida</span>'}</span></div>
       </div>
       ${correzioniOperai() ? `<div class="r-riga"><div class="r-cella"><span class="r-et">Correzioni operai:</span>

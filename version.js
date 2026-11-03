@@ -2,6 +2,11 @@
 // La usano la scritta in fondo alla pagina (con l'elenco "Novità") e il service worker (sw.js)
 // per scaricare la versione nuova.
 self.APP_STORICO = [
+  { versione: '2.0', data: '03/11/2026', novita: [
+    'Quando compila l\'ufficio, il caposquadra si sceglie dall\'elenco operai (prima usciva sempre il nome di chi era entrato)',
+    'Sul rapportino resta scritto \"compilato dall\'ufficio\" con il nome di chi l\'ha compilato',
+    'Per i capisquadra non cambia nulla: il loro nome resta automatico e non modificabile'
+  ] },
   { versione: '1.9', data: '03/11/2026', novita: [
     'Tasto \"Stampa\" nel rapportino aperto: fronte e retro su due fogli A4 come il modulo cartaceo',
     'Retro con tabella Turno di lavoro, riquadro ore 1°/2° turno, operai e Firma RC / Convalida',
