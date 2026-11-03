@@ -254,10 +254,14 @@ async function utenteCambiato(user) {
     document.querySelector('.scheda-btn[data-vista="gestione"]').hidden = true;
     avviaResponsabile();
     mostraVista('arrivati');
+    // 5 tocchi sul simbolo nella schermata di accesso: dopo l'ingresso chiede subito il PIN
+    if (ingressoSviluppatore && sviluppatore) apriAreaSviluppatore();
   } else {
     $('menuResponsabile').hidden = true;
     mostraVista('compila');
   }
+  ingressoSviluppatore = false;
+  $('sottotitoloAccesso').textContent = 'Mod. 22.03 digitale';
 }
 
 $('formLogin').addEventListener('submit', async e => {
@@ -1670,7 +1674,7 @@ $('formUtente').addEventListener('submit', async e => {
 // 5 tocchi sul simbolo GC in fondo alla pagina + PIN. Per tutti gli altri il simbolo non fa nulla.
 // Il PIN è salvato come impronta (SHA-256 con sale) in config/sviluppatore, leggibile solo dallo sviluppatore.
 // La vera protezione resta nelle regole del database (solo il profilo sviluppatore può modificare elenchi e utenti).
-let tocchiMarchio = [], pinSbagliati = 0, pinBloccatoFino = 0;
+let tocchiMarchio = [], pinSbagliati = 0, pinBloccatoFino = 0, ingressoSviluppatore = false;
 async function impronta(pin, sale) {
   const b = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(`${sale}:${pin}`));
   return [...new Uint8Array(b)].map(x => x.toString(16).padStart(2, '0')).join('');
@@ -1720,11 +1724,19 @@ async function apriAreaSviluppatore() {
   document.querySelector('.scheda-btn[data-vista="gestione"]').hidden = false;
   mostraVista('gestione');
 }
-$('marchioGC').addEventListener('click', () => {
+const cinqueTocchi = azione => () => {
   const ora = Date.now();
   tocchiMarchio = tocchiMarchio.filter(t => ora - t < 4000).concat(ora);
-  if (tocchiMarchio.length >= 5) { tocchiMarchio = []; apriAreaSviluppatore(); }
-});
+  if (tocchiMarchio.length >= 5) { tocchiMarchio = []; azione(); }
+};
+$('marchioGC').addEventListener('click', cinqueTocchi(apriAreaSviluppatore));
+// Schermata di accesso: 5 tocchi segnano "accesso sviluppatore" (si vede nel sottotitolo); altri 5 lo annullano.
+// Si entra con codice e password, poi l'app chiede il PIN (solo se il profilo è quello dello sviluppatore).
+$('marchioAccesso').addEventListener('click', cinqueTocchi(() => {
+  ingressoSviluppatore = !ingressoSviluppatore;
+  $('sottotitoloAccesso').textContent = ingressoSviluppatore ? 'Accesso sviluppatore' : 'Mod. 22.03 digitale';
+  if (ingressoSviluppatore) $('loginCodice').focus();
+}));
 $('btnCambiaPin').onclick = () => nuovoPin(false).catch(err => avviso(messaggioErrore(err), 'errore'));
 $('btnChiudiArea').onclick = () => {
   stato.areaAperta = false;

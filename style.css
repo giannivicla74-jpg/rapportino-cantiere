@@ -596,4 +596,4 @@ button.o-p { cursor: pointer; -webkit-tap-highlight-color: transparent; }
 
 /* area sviluppatore: campo PIN e simbolo GC cliccabile */
 .campo-pin { width: 100%; font-size: 1.4rem; letter-spacing: .4em; text-align: center; padding: 10px; border: 1px solid var(--bordo); border-radius: 8px; background: var(--carta); color: var(--testo); }
-#marchioGC { cursor: default; -webkit-tap-highlight-color: transparent; user-select: none; padding: 4px 0; box-sizing: content-box; }
+#marchioGC, #marchioAccesso { cursor: default; -webkit-tap-highlight-color: transparent; user-select: none; padding: 4px 0; box-sizing: content-box; }
