@@ -10,7 +10,8 @@ import { firebaseConfig, DOMINIO_ACCESSI } from './firebase-config.js';
 import { initializeApp, deleteApp } from 'https://www.gstatic.com/firebasejs/10.14.1/firebase-app.js';
 import {
   getAuth, initializeAuth, inMemoryPersistence, onAuthStateChanged, signInWithEmailAndPassword,
-  createUserWithEmailAndPassword, signOut, connectAuthEmulator
+  createUserWithEmailAndPassword, signOut, connectAuthEmulator, updatePassword, reauthenticateWithCredential,
+  EmailAuthProvider
 } from 'https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js';
 import {
   initializeFirestore, persistentLocalCache, persistentMultipleTabManager, doc, collection, getDoc,
@@ -691,6 +692,12 @@ function avviaResponsabile() {
     const offU = onSnapshot(collection(db, 'utenti'), snap => disegnaUtenti(snap.docs.map(d => ({ uid: d.id, ...d.data() }))),
       err => avviso(`Elenco utenti non aggiornato: ${messaggioErrore(err)} (ricarica la pagina)`, 'errore'));
     stato.annulla.push(offU);
+    // PIN degli utenti (li legge solo lo sviluppatore)
+    const offP = onSnapshot(collection(db, 'accessi'), snap => {
+      stato.pinUtenti = Object.fromEntries(snap.docs.map(d => [d.id, d.data().pin]));
+      if (stato.utentiLista) disegnaUtenti(stato.utentiLista);
+    }, err => avviso(`PIN non disponibili: ${messaggioErrore(err)}`, 'errore'));
+    stato.annulla.push(offP);
   }
 
   // anni nell'elenco Convalidati: dal 2026 (inizio del rapportino digitale) all'anno in corso
@@ -1635,8 +1642,87 @@ function disegnaUtenti(utenti) {
       <span class="etichetta ${u.attivo ? 'ok' : 'no'}">${u.attivo ? 'Attivo' : 'Disattivato'}</span>
       ${u.uid === stato.utente.uid ? '' : `<button class="btn piccolo" data-uid="${esc(u.uid)}" data-attivo="${u.attivo ? 1 : 0}">${u.attivo ? 'Disattiva' : 'Riattiva'}</button>
       <button class="btn piccolo pericolo" data-elimina="${esc(u.uid)}" data-nome="${esc(u.nome)}" data-codice="${esc(u.codice)}">Elimina</button>`}
+      ${rigaPin(u)}
     </div>`).join('');
 }
+// Riga PIN: PIN nascosto con occhio, invio con WhatsApp, nuovo PIN (scritto o generato) e Cambia
+function rigaPin(u) {
+  const pin = (stato.pinUtenti || {})[u.uid];
+  const id = esc(u.uid);
+  return `<div class="voce-pin">
+    <span class="pin-attuale" data-pin-di="${id}">${pin ? '••••••' : '<i>PIN non registrato</i>'}</span>
+    ${pin ? `<button class="btn piccolo" data-occhio="${id}" title="Mostra / nascondi il PIN">👁</button>` : ''}
+    <button class="btn piccolo whatsapp" data-whatsapp="${id}">WhatsApp</button>
+    <input class="pin-nuovo" data-pin-campo="${id}" inputmode="numeric" maxlength="6" placeholder="6 cifre" autocomplete="off">
+    <button class="btn piccolo" data-genera="${id}">🎲 Genera</button>
+    <button class="btn piccolo" data-cambia="${id}">Cambia</button>
+  </div>`;
+}
+// Messaggio WhatsApp: link per installare l'app, istruzioni e dati di accesso (si sceglie il contatto in WhatsApp)
+function messaggioInstallazione(nome, pin) {
+  const link = location.origin + location.pathname;
+  return `Ciao ${nome},\nper il Rapportino di Cantiere Vi.Cla. Future installa l'app da questo link:\n${link}\n\n` +
+    `COME INSTALLARLA\n` +
+    `• Android: apri il link con Chrome, tocca i tre puntini ⋮ in alto a destra e scegli "Installa app" (o "Aggiungi a schermata Home").\n` +
+    `• iPhone: apri il link con Safari, tocca il tasto Condividi (quadrato con la freccia) e scegli "Aggiungi a Home".\n\n` +
+    `PER ENTRARE\nNome e cognome: ${nome}\nPIN: ${pin}\n\nNon dare il PIN a nessuno.`;
+}
+// Cambio PIN di un utente: ci si collega come lui con una connessione "usa e getta" (serve il PIN attuale)
+// e si imposta quello nuovo. Per sé stessi si usa la sessione aperta.
+async function cambiaPin(u, nuovo) {
+  let attuale = (stato.pinUtenti || {})[u.uid];
+  if (!attuale) {
+    attuale = await chiediPin(`PIN attuale di ${u.nome}`, 'Il PIN attuale di questo utente non è registrato nell\'app. Scrivilo una volta (per i vecchi accessi: la vecchia password), poi l\'app lo ricorderà.');
+    if (attuale === null) return false;
+  }
+  if (u.uid === stato.utente.uid) {
+    await reauthenticateWithCredential(auth.currentUser, EmailAuthProvider.credential(emailDi(u.codice), attuale));
+    await updatePassword(auth.currentUser, nuovo);
+  } else {
+    let app2;
+    try {
+      app2 = initializeApp(config, `cambio-pin-${Date.now()}`);
+      const auth2 = initializeAuth(app2, { persistence: inMemoryPersistence });
+      if (EMULATORE) connectAuthEmulator(auth2, 'http://127.0.0.1:9099', { disableWarnings: true });
+      const cred = await signInWithEmailAndPassword(auth2, emailDi(u.codice), attuale);
+      await updatePassword(cred.user, nuovo);
+      await signOut(auth2);
+    } finally {
+      if (app2) deleteApp(app2).catch(() => {});
+    }
+  }
+  await setDoc(doc(db, 'accessi', u.uid), { pin: nuovo, aggiornatoIl: serverTimestamp(), aggiornatoDa: stato.utente.nome });
+  stato.pinUtenti = { ...(stato.pinUtenti || {}), [u.uid]: nuovo };
+  return true;
+}
+$('listaUtenti').addEventListener('click', async e => {
+  const t = e.target.closest('[data-occhio],[data-whatsapp],[data-genera],[data-cambia]');
+  if (!t) return;
+  const uid = t.dataset.occhio || t.dataset.whatsapp || t.dataset.genera || t.dataset.cambia;
+  const u = (stato.utentiLista || []).find(x => x.uid === uid);
+  if (!u) return;
+  const pin = (stato.pinUtenti || {})[uid];
+  const campo = $('listaUtenti').querySelector(`[data-pin-campo="${CSS.escape(uid)}"]`);
+  if (t.dataset.occhio) {
+    const el = $('listaUtenti').querySelector(`[data-pin-di="${CSS.escape(uid)}"]`);
+    el.textContent = el.textContent === pin ? '••••••' : pin;
+  } else if (t.dataset.whatsapp) {
+    if (!pin) { avviso('Prima imposta un PIN con "Genera" e "Cambia": poi lo puoi inviare', 'errore'); return; }
+    window.open('https://wa.me/?text=' + encodeURIComponent(messaggioInstallazione(u.nome, pin)), '_blank');
+  } else if (t.dataset.genera) {
+    campo.value = String(crypto.getRandomValues(new Uint32Array(1))[0] % 1000000).padStart(6, '0');
+  } else if (t.dataset.cambia) {
+    const nuovo = campo.value.trim();
+    if (!/^\d{6}$/.test(nuovo)) { avviso('Il nuovo PIN deve essere di 6 cifre (scrivilo o premi Genera)', 'errore'); return; }
+    if (!await conferma('Cambiare il PIN?', `<p>Nuovo PIN di <b>${esc(u.nome)}</b>: <b>${nuovo}</b></p><p>Il vecchio PIN non funzionerà più. Ricordati di comunicarglielo (anche con il tasto WhatsApp).</p>`, 'Cambia')) return;
+    t.disabled = true;
+    try {
+      if (await cambiaPin(u, nuovo)) { avviso(`PIN di ${u.nome} cambiato`, 'ok'); disegnaUtenti(stato.utentiLista); }
+    } catch (err) {
+      avviso(/invalid-credential|wrong-password/.test(err?.code || '') ? 'PIN attuale sbagliato: il PIN non è stato cambiato' : messaggioErrore(err), 'errore');
+    } finally { t.disabled = false; }
+  }
+});
 $('listaUtenti').addEventListener('click', async e => {
   const el = e.target.closest('[data-elimina]');
   if (el) {
@@ -1647,6 +1733,7 @@ $('listaUtenti').addEventListener('click', async e => {
     if (!ok) return;
     try {
       await deleteDoc(doc(db, 'utenti', el.dataset.elimina));
+      await deleteDoc(doc(db, 'accessi', el.dataset.elimina)).catch(() => {});
       // l'elenco si aggiorna subito, senza aspettare il database (con più schede aperte a volte tarda)
       disegnaUtenti((stato.utentiLista || []).filter(u => u.uid !== el.dataset.elimina));
       avviso('Utente eliminato', 'ok');
@@ -1679,6 +1766,7 @@ $('formUtente').addEventListener('submit', async e => {
     if (EMULATORE) connectAuthEmulator(auth2, 'http://127.0.0.1:9099', { disableWarnings: true });
     const cred = await createUserWithEmailAndPassword(auth2, emailDi(codice), password);
     await setDoc(doc(db, 'utenti', cred.user.uid), { nome, codice, ruolo, attivo: true, creatoIl: serverTimestamp(), creatoDa: stato.utente.nome });
+    await setDoc(doc(db, 'accessi', cred.user.uid), { pin: password, aggiornatoIl: serverTimestamp(), aggiornatoDa: stato.utente.nome });
     await signOut(auth2);
     $('formUtente').reset();
     await finestra('Utente creato', `<p><b>${esc(nome)}</b> può entrare con:</p><p>Nome e cognome: <b>${esc(nome)}</b><br>PIN: <b>${esc(password)}</b></p><p>Comunicaglieli di persona.</p>`);
@@ -1771,6 +1859,7 @@ if (EMULATORE) {
     leggiRapportini: async () => (await getDocs(collection(db, 'rapportini'))).size,
     modificaRapportino: async (id, campi) => updateDoc(doc(db, 'rapportini', id), campi),
     scriviElenchi: async () => setDoc(doc(db, 'elenchi', 'automezzi'), { voci: ['PROVA'] }).then(() => 'scritto', e => e.code),
-    modificaUtente: async uid => updateDoc(doc(db, 'utenti', uid), { attivo: false }).then(() => 'scritto', e => e.code)
+    modificaUtente: async uid => updateDoc(doc(db, 'utenti', uid), { attivo: false }).then(() => 'scritto', e => e.code),
+    leggiPin: async () => getDocs(collection(db, 'accessi')).then(s => 'letti ' + s.size, e => e.code)
   };
 }
