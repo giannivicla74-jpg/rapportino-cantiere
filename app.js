@@ -1774,13 +1774,53 @@ function rigaPin(u) {
   </div>`;
 }
 // Messaggio WhatsApp: link per installare l'app, istruzioni e dati di accesso (si sceglie il contatto in WhatsApp)
+// Data da cui si accettano solo rapportini digitali (scritta nel messaggio di benvenuto)
+const INIZIO_DIGITALE = 'lunedì 9 novembre 2026 (09/11/2026)';
 function messaggioInstallazione(nome, pin) {
-  const link = location.origin + location.pathname;
-  return `Ciao ${nome},\nper il Rapportino di Cantiere Vi.Cla. Future installa l'app da questo link:\n${link}\n\n` +
-    `COME INSTALLARLA\n` +
-    `• Android: apri il link con Chrome, tocca i tre puntini ⋮ in alto a destra e scegli "Installa app" (o "Aggiungi a schermata Home").\n` +
-    `• iPhone: apri il link con Safari, tocca il tasto Condividi (quadrato con la freccia) e scegli "Aggiungi a Home".\n\n` +
-    `PER ENTRARE\nNome e cognome: ${nome}\nPIN: ${pin}\n\nNon dare il PIN a nessuno.`;
+  // il link è sempre quello ufficiale (anche se il messaggio parte dal vecchio indirizzo); nel simulatore quello locale
+  const link = EMULATORE ? location.origin + location.pathname : 'https://rapportino.gccodelab.it/';
+  return [
+    `📋 *BENVENUTO NEL RAPPORTINO DI CANTIERE DIGITALE*`,
+    `Vi.Cla. Future S.r.L.`,
+    ``,
+    `Ciao *${nome}*,`,
+    ``,
+    `📢 *AVVISO IMPORTANTE*`,
+    `Da *${INIZIO_DIGITALE}* i rapportini si consegnano *SOLO IN DIGITALE*, con questa applicazione.`,
+    `*Non saranno più accettati rapportini cartacei.*`,
+    ``,
+    `📝 *COM'È FATTO*`,
+    `Il rapportino è *uguale a quello di carta*: commessa, data, operai con la X, orari, automezzi, pausa mensa, lavorazioni.`,
+    `Solo che è *più semplice e veloce* da compilare.`,
+    ``,
+    `📲 *COME INSTALLARLA*`,
+    `Apri questo link:`,
+    link,
+    ``,
+    `▪️ *Android* (Chrome): tocca i tre puntini ⋮ in alto a destra e scegli *"Installa app"* (oppure "Aggiungi a schermata Home").`,
+    `▪️ *iPhone* (Safari): tocca il tasto *Condividi* (il quadrato con la freccia) e scegli *"Aggiungi a Home"*.`,
+    ``,
+    `Sul telefono comparirà l'icona *Rapportino*.`,
+    ``,
+    `🔑 *I TUOI DATI PER ENTRARE*`,
+    `Nome e cognome: *${nome}*`,
+    `PIN: *${pin}*`,
+    `_Non dare il PIN a nessuno._`,
+    ``,
+    `✏️ *PRIMA DI TUTTO: FAI PRATICA*`,
+    `Dopo l'installazione entra nell'app e *prova a compilare i campi*: scegli la commessa, metti le X agli operai, scrivi gli orari, gli automezzi e le lavorazioni.`,
+    ``,
+    `⚠️ *ATTENZIONE: MENTRE FAI PRATICA NON PREMERE "INVIA AL RESPONSABILE"*`,
+    `Quando hai finito di provare, premi *"Svuota"* per cancellare tutto.`,
+    ``,
+    `✅ *DAL 09/11/2026*`,
+    `Compila il rapportino del giorno e premi *"Invia al responsabile"*: arriva subito in ufficio.`,
+    `Controllalo bene prima di inviarlo: *dopo l'invio non si può più vedere né modificare.*`,
+    ``,
+    `❓ Per dubbi o problemi rivolgiti all'ufficio.`,
+    ``,
+    `_GC-CodeLab • Software Engineered & Designed by Giovanni Cavallo_`
+  ].join('\n');
 }
 // Cambio PIN di un utente: ci si collega come lui con una connessione "usa e getta" (serve il PIN attuale)
 // e si imposta quello nuovo. Per sé stessi si usa la sessione aperta.
