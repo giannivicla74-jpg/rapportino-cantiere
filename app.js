@@ -263,6 +263,7 @@ async function utenteCambiato(user) {
   stato.annulla.forEach(f => { try { f(); } catch (_) {} });
   stato.annulla = [];
   stato.areaAperta = false;
+  $('avvisoCartella').hidden = true; // la barra della cartella riguarda solo il responsabile sul PC
   if (!user) {
     stato.utente = null;
     mostraSchermo('scrLogin');
@@ -751,7 +752,6 @@ $('btnNuovo').onclick = () => mostraVista('compila');
 // ================================================================
 // RESPONSABILE
 // ================================================================
-let responsabileAvviato = false;
 function avviaResponsabile() {
   // elenco dei rapportini arrivati, aggiornato in tempo reale
   const off = onSnapshot(query(collection(db, 'rapportini'), where('stato', '==', 'arrivato')), snap => {
@@ -778,8 +778,11 @@ function avviaResponsabile() {
   if (!$('annoConvalidati').options.length) {
     for (let a = annoOggi; a >= Math.min(2026, annoOggi); a--) $('annoConvalidati').add(new Option(a, a));
   }
-  if (!responsabileAvviato) {
-    responsabileAvviato = true;
+  // la cartella Excel serve solo sul PC: sul telefono o sul tablet non si controlla nemmeno
+  if (dispositivoMobile()) {
+    stato.cartellaPronta = false;
+    aggiornaInfoScrittura();
+  } else {
     CartellaExcel.restore().then(s => (s === 'pronta' ? cartellaPronta() : mostraAvvisoCartella(s)));
   }
 }
@@ -1418,8 +1421,20 @@ $('btnStampa').onclick = () => {
 };
 
 // ---------------------------------------------------------------- scrittura su Excel
+// Telefono o tablet: su Excel si scrive solo dal PC dell'ufficio
+function dispositivoMobile() {
+  return navigator.userAgentData?.mobile === true
+    || /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent)
+    || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1); // iPad che si presenta come Mac
+}
 function mostraAvvisoCartella(s) {
   stato.cartellaPronta = false;
+  // la barra è solo per il responsabile sul PC (anche se il controllo finisce dopo un cambio di utente)
+  if (stato.utente?.ruolo !== 'responsabile' || dispositivoMobile()) {
+    $('avvisoCartella').hidden = true;
+    aggiornaInfoScrittura();
+    return;
+  }
   $('avvisoCartella').hidden = false;
   if (!CartellaExcel.supported()) {
     $('avvisoCartellaTesto').textContent = 'Per scrivere su Excel apri l\'app sul PC dell\'ufficio con Microsoft Edge o Google Chrome.';
@@ -1447,6 +1462,7 @@ function cartellaPronta() {
 async function aggiornaInfoScrittura() {
   const el = $('infoScrittura');
   if (!el) return;
+  if (dispositivoMobile()) { el.textContent = 'La scrittura su Excel si fa dal PC dell\'ufficio.'; return; }
   if (!stato.cartellaPronta) { el.innerHTML = `<b>Cartella Excel non collegata</b> (${stato.utente?.sviluppatore ? 'Elenchi e utenti → Cartella dei file Excel' : 'barra gialla in alto'}).`; return; }
   try {
     const files = await CartellaExcel.listExcelFiles();
@@ -1461,10 +1477,17 @@ $('btnCartella').onclick = async () => {
   } catch (err) { if (err.name !== 'AbortError') avviso(`Cartella non collegata: ${err.message}`, 'errore'); }
 };
 $('btnCambiaCartella').onclick = async () => {
+  if (dispositivoMobile()) { avviso('La cartella Excel si collega dal PC dell\'ufficio', 'errore'); return; }
   try { await CartellaExcel.choose(); cartellaPronta(); avviso(`Cartella collegata: ${CartellaExcel.name()}`, 'ok'); }
   catch (err) { if (err.name !== 'AbortError') avviso(err.message, 'errore'); }
 };
-async function richiediCartella() {
+async function richiediCartella(perConvalida = false) {
+  if (dispositivoMobile()) {
+    await finestra('Serve il PC dell\'ufficio', perConvalida
+      ? '<p>Per scrivere su Excel usa il PC dell\'ufficio. Le ore le puoi salvare con "Salva senza convalidare".</p>'
+      : '<p>I file Excel si usano solo dal PC dell\'ufficio.</p>');
+    return false;
+  }
   if (!CartellaExcel.supported()) {
     await finestra('Excel non raggiungibile', '<p>Per scrivere su Excel usa il PC dell\'ufficio con Microsoft Edge o Google Chrome.</p>');
     return false;
@@ -1524,7 +1547,7 @@ $('btnConvalida').onclick = async () => {
   const { records, errori, avvisi } = calcolaRecord();
   if (errori.length) { await finestra('Da sistemare prima di scrivere', `<ul>${errori.map(e => `<li>${esc(e)}</li>`).join('')}</ul>`); return; }
   if (avvisi.length && !await conferma('Controlla', `<ul>${avvisi.map(a => `<li>${esc(a)}</li>`).join('')}</ul><p>Vuoi scrivere lo stesso?</p>`, 'Scrivi lo stesso')) return;
-  if (!await richiediCartella()) return;
+  if (!await richiediCartella(true)) return;
 
   const btn = $('btnConvalida');
   btn.disabled = true;
