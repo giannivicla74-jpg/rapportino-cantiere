@@ -322,14 +322,6 @@ $('formLogin').addEventListener('submit', async e => {
   }
 });
 
-// Per i vecchi accessi con password con lettere: il campo PIN passa alla tastiera normale (sul telefono)
-$('btnPinLettere').onclick = () => {
-  const lettere = $('loginPassword').inputMode !== 'text';
-  $('loginPassword').inputMode = lettere ? 'text' : 'numeric';
-  $('btnPinLettere').textContent = lettere ? 'Torna alla tastiera numerica' : 'Il tuo vecchio accesso ha una password con lettere?';
-  $('loginPassword').focus();
-};
-
 // Il collegamento "Prima configurazione" è nascosto: compare solo aprendo l'indirizzo con ?configura
 // (oltre alla regola del database che rifiuta una seconda configurazione).
 $('btnApriSetup').hidden = !(EMULATORE || new URLSearchParams(location.search).has('configura'));
