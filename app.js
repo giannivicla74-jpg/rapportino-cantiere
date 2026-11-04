@@ -1742,9 +1742,13 @@ function disegnaGestioneMezzi() {
   if (stato.utente?.ruolo !== 'responsabile') return;
   $('listaMezzi').innerHTML = stato.automezzi.length
     ? stato.automezzi.map((m, i) => `<div class="voce">
+        <span class="voce-num">${i + 1}.</span>
         <div class="voce-princ"><div class="voce-titolo">${esc(m)}</div></div>
+        <button class="btn piccolo" data-modifica-mezzo="${i}" title="Modifica" aria-label="Modifica ${esc(m)}">✏️</button>
         <button class="btn piccolo pericolo" data-togli-mezzo="${i}">Togli</button></div>`).join('')
     : '<div class="nessuno">Nessun automezzo: aggiungili qui sotto</div>';
+  const n = stato.automezzi.length;
+  $('contaMezzi').textContent = n ? `(${n})` : '';
 }
 const salvaMezzi = voci => setDoc(doc(db, 'elenchi', 'automezzi'), { voci, aggiornatoIl: serverTimestamp(), aggiornatoDa: stato.utente.nome });
 
@@ -1753,13 +1757,41 @@ $('formMezzo').addEventListener('submit', async e => {
   const nuovo = $('nuovoMezzo').value.trim().replace(/\s+/g, ' ');
   if (!nuovo) return;
   if (stato.automezzi.some(m => m.toUpperCase() === nuovo.toUpperCase())) { avviso('Questo automezzo è già in elenco', 'errore'); return; }
+  // il campo si svuota subito: se si sta già scrivendo il mezzo successivo, la conferma del salvataggio non lo cancella
+  $('nuovoMezzo').value = '';
   try {
     await salvaMezzi([...stato.automezzi, nuovo]);
-    $('nuovoMezzo').value = '';
     avviso(`Aggiunto: ${nuovo}`, 'ok');
-  } catch (err) { avviso(messaggioErrore(err), 'errore'); }
+  } catch (err) {
+    if (!$('nuovoMezzo').value) $('nuovoMezzo').value = nuovo;
+    avviso(messaggioErrore(err), 'errore');
+  }
 });
 $('listaMezzi').addEventListener('click', async e => {
+  const matita = e.target.closest('[data-modifica-mezzo]');
+  if (matita) {
+    const vecchio = stato.automezzi[Number(matita.dataset.modificaMezzo)];
+    if (vecchio === undefined) return;
+    const scelta = finestra('Modifica automezzo', `<input id="campoMezzo" class="campo-mezzo" maxlength="80" autocomplete="off" value="${esc(vecchio)}">
+      <p class="aiuto">I rapportini già inviati non cambiano. Chi lo ha già scelto in un rapportino non ancora inviato dovrà sceglierlo di nuovo.</p>`,
+      [{ testo: 'Annulla', valore: false }, { testo: 'Salva', valore: true, primario: true }]);
+    const campo = $('campoMezzo');
+    campo.focus();
+    campo.select();
+    campo.onkeydown = ev => { if (ev.key === 'Enter') { ev.preventDefault(); $('finestraBottoni').lastChild.click(); } };
+    if (!await scelta) return;
+    const nuovo = campo.value.trim().replace(/s+/g, ' ');
+    if (!nuovo || nuovo === vecchio) return;
+    // la posizione si ricalcola adesso: nel frattempo l'elenco può essere cambiato
+    const pos = stato.automezzi.indexOf(vecchio);
+    if (pos < 0) { avviso('Questo automezzo non è più in elenco', 'errore'); return; }
+    if (stato.automezzi.some((m, x) => x !== pos && m.toUpperCase() === nuovo.toUpperCase())) { avviso('Questo automezzo è già in elenco', 'errore'); return; }
+    try {
+      await salvaMezzi(stato.automezzi.map((m, x) => (x === pos ? nuovo : m)));
+      avviso(`Modificato: ${nuovo}`, 'ok');
+    } catch (err) { avviso(messaggioErrore(err), 'errore'); }
+    return;
+  }
   const i = e.target.dataset.togliMezzo;
   if (i === undefined) return;
   const m = stato.automezzi[Number(i)];
