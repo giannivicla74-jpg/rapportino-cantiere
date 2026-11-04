@@ -19,6 +19,7 @@
   <script src="libs/jszip.min.js"></script>
   <script src="excel.js"></script>
   <script src="cartella.js"></script>
+  <script src="archivio.js"></script>
   <script type="module" src="app.js"></script>
 </head>
 <body>
@@ -117,6 +118,10 @@
     <div class="avviso" id="avvisoCartella" hidden>
       <span id="avvisoCartellaTesto"></span>
       <button class="btn piccolo primario" id="btnCartella">Collega cartella Excel</button>
+    </div>
+    <div class="avviso" id="avvisoArchivio" hidden>
+      <span id="avvisoArchivioTesto"></span>
+      <button class="btn piccolo primario" id="btnArchivioBarra">Scegli cartella archivio</button>
     </div>
 
     <main class="contenuto">
@@ -243,11 +248,13 @@
           <div class="riepilogo" id="riepilogoOre"></div>
           <div class="azioni">
             <button class="btn" id="btnStampa" type="button">🖨 Stampa</button>
+            <button class="btn" id="btnArchivia" type="button" hidden>Salva nell'archivio</button>
             <button class="btn pericolo" id="btnElimina">Elimina rapportino</button>
             <button class="btn" id="btnSalvaOre">Salva senza convalidare</button>
             <button class="btn primario grande" id="btnConvalida">Convalida e scrivi su Excel</button>
           </div>
           <p class="info-scrittura" id="infoScrittura"></p>
+          <p class="info-scrittura" id="infoArchivioRapportino"></p>
           <p class="aiuto" id="infoFileExcel"></p>
         </div>
         </div>
@@ -319,6 +326,17 @@
         <div class="scheda">
           <p id="infoCartella" class="aiuto"></p>
           <button class="btn" id="btnCambiaCartella">Cambia cartella</button>
+        </div>
+
+        <h2>Archivio rapportini</h2>
+        <div class="scheda">
+          <p>A ogni convalida l'app salva qui una copia del rapportino, in una cartella per anno e mese. Si apre con un doppio clic e si può stampare.</p>
+          <p id="infoArchivio" class="aiuto"></p>
+          <button class="btn" id="btnCambiaArchivio">Scegli cartella archivio</button>
+          <h3>Mesi vecchi</h3>
+          <p class="aiuto">Nell'app restano gli ultimi 5 mesi, compreso quello in corso. I mesi più vecchi si possono cancellare dal database, ma solo se tutti i rapportini sono nell'archivio.</p>
+          <button class="btn" id="btnControllaVecchi">Controlla i mesi da cancellare</button>
+          <div id="mesiVecchi" class="elenco"></div>
         </div>
 
         <h2>Area sviluppatore</h2>

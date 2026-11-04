@@ -265,6 +265,7 @@ async function utenteCambiato(user) {
   stato.annulla = [];
   stato.areaAperta = false;
   $('avvisoCartella').hidden = true; // la barra della cartella riguarda solo il responsabile sul PC
+  $('avvisoArchivio').hidden = true;
   if (!user) {
     stato.utente = null;
     mostraSchermo('scrLogin');
@@ -785,6 +786,7 @@ function avviaResponsabile() {
     aggiornaInfoScrittura();
   } else {
     CartellaExcel.restore().then(s => (s === 'pronta' ? cartellaPronta() : mostraAvvisoCartella(s)));
+    CartellaArchivio.restore().then(s => (s === 'pronta' ? archivioPronto() : mostraAvvisoArchivio(s)));
   }
 }
 
@@ -970,6 +972,10 @@ function apriRapportino(r) {
   const conv = r.stato === 'convalidato';
   $('btnConvalida').textContent = conv ? 'Riscrivi su Excel' : 'Convalida e scrivi su Excel';
   $('btnSalvaOre').hidden = conv;
+  $('btnArchivia').hidden = !conv || dispositivoMobile();
+  $('infoArchivioRapportino').innerHTML = !conv ? '' : r.archivioFile
+    ? `✓ In archivio: <b>${esc(r.archivioPercorso || '')}/${esc(r.archivioFile)}</b>`
+    : '<b>Non ancora nell\'archivio.</b>';
   $('infoFileExcel').innerHTML = conv
     ? `Convalidato da ${esc(r.convalidatoDaNome || '')} il ${esc(dataOraIT(r.convalidatoIl))}.
        ${percorsoHTML(r.cartellaExcel, r.fileExcel, r.giornoExcel || Number(String(r.data).slice(8, 10)),
@@ -1609,8 +1615,19 @@ $('btnConvalida').onclick = async () => {
       giornoExcel: giorno,
       righeExcel: righe.map(x => `${x.nome}|${x.turno}|${x.riga}`)
     });
+    // Copia nell'archivio: Excel è già scritto, quindi un errore qui non ferma niente e si può rifare dal rapportino aperto
+    const finale = {
+      ...dati, stato: 'convalidato', blocchi: stato.aperto.blocchi,
+      operaiAggiunti: stato.aperto.aggiunti, operaiTolti: stato.aperto.tolti,
+      convalidatoIl: new Date(), convalidatoDaUid: stato.utente.uid, convalidatoDaNome: stato.utente.nome,
+      fileExcel: fileName, cartellaExcel: CartellaExcel.name(), giornoExcel: giorno
+    };
+    const esitoArchivio = await archiviaRapportino(finale).then(
+      p => `<p class="ok-box">✓ Copia salvata nell'archivio: <b>${esc(p)}</b></p>`,
+      e => `<p class="errore">⚠ Copia NON salvata nell'archivio (${esc(e.message)}). Excel è a posto: collega la cartella, riapri il rapportino dai Convalidati e premi "Salva nell'archivio".</p>`);
     await finestra('Convalidato', `<p>Scritti <b>${daScrivere.length}</b> turni.${saltati ? ` ${saltati} lasciati com'erano perché già presenti.` : ''}</p>
       ${percorsoHTML(CartellaExcel.name(), fileName, giorno, righe)}
+      ${esitoArchivio}
       <p>Il rapportino è passato tra i convalidati.</p>`);
     mostraVista('arrivati');
   } catch (err) {
@@ -1622,6 +1639,158 @@ $('btnConvalida').onclick = async () => {
     btn.textContent = testoBtn;
   }
 };
+
+// ---------------------------------------------------------------- archivio dei rapportini
+function mostraAvvisoArchivio(s) {
+  stato.archivioPronto = false;
+  $('infoArchivio').textContent = 'Cartella dell\'archivio non collegata.';
+  if (stato.utente?.ruolo !== 'responsabile' || dispositivoMobile() || !CartellaExcel.supported()) { $('avvisoArchivio').hidden = true; return; }
+  $('avvisoArchivio').hidden = false;
+  if (s === 'da-confermare') {
+    $('avvisoArchivioTesto').textContent = `Conferma l'accesso alla cartella "${CartellaArchivio.name()}" dell'archivio rapportini.`;
+    $('btnArchivioBarra').textContent = 'Consenti accesso';
+    $('btnArchivioBarra').dataset.azione = 'conferma';
+  } else {
+    $('avvisoArchivioTesto').textContent = 'Scegli la cartella dell\'archivio rapportini: lì l\'app salva una copia di ogni rapportino convalidato.';
+    $('btnArchivioBarra').textContent = 'Scegli cartella archivio';
+    $('btnArchivioBarra').dataset.azione = 'scegli';
+  }
+}
+function archivioPronto() {
+  stato.archivioPronto = true;
+  $('avvisoArchivio').hidden = true;
+  $('infoArchivio').textContent = `Cartella dell'archivio: ${CartellaArchivio.name()}`;
+}
+async function scegliArchivio() {
+  try {
+    if ($('btnArchivioBarra').dataset.azione === 'conferma' && await CartellaArchivio.confirmAccess()) return archivioPronto();
+    await CartellaArchivio.choose();
+    archivioPronto();
+    avviso(`Cartella dell'archivio: ${CartellaArchivio.name()}`, 'ok');
+  } catch (err) { if (err.name !== 'AbortError') avviso(`Archivio non collegato: ${err.message}`, 'errore'); }
+}
+$('btnArchivioBarra').onclick = scegliArchivio;
+$('btnCambiaArchivio').onclick = () => {
+  if (dispositivoMobile()) { avviso('La cartella dell\'archivio si sceglie dal PC dell\'ufficio', 'errore'); return; }
+  $('btnArchivioBarra').dataset.azione = 'scegli';
+  scegliArchivio();
+};
+// Accesso alla cartella: la rilegge ogni volta e, se serve, chiede la conferma
+async function archivioAccessibile() {
+  if (window.__prova) return !!stato.archivioPronto;
+  const s = await CartellaArchivio.restore();
+  if (s === 'pronta') { archivioPronto(); return true; }
+  if (s === 'da-confermare' && await CartellaArchivio.confirmAccess().catch(() => false)) { archivioPronto(); return true; }
+  mostraAvvisoArchivio(s);
+  return false;
+}
+
+// Dove va il file: Anno/MM-Mese/AAAA-MM-GG_commessa_caposquadra_codice.html
+const nomeSicuro = t => String(t || '').replace(/[\\/:*?"<>|]+/g, '-').replace(/\s+/g, ' ').trim();
+function posizioneArchivio(r) {
+  const [anno, mese] = String(r.data).split('-');
+  const percorso = [anno, `${mese}-${MESI[Number(mese) - 1]}`];
+  return { percorso, testo: percorso.join('/'), file: `${r.data}_${nomeSicuro(r.commessa)}_${nomeSicuro(r.caposquadraNome)}_${String(r.id).slice(0, 5)}.html` };
+}
+// Una pagina completa e autonoma: stessi stili della stampa e logo dentro il file, si apre con un doppio clic anche senza internet
+const inBase64 = async url => {
+  const b = await (await fetch(url)).blob();
+  return new Promise((ok, no) => { const f = new FileReader(); f.onload = () => ok(f.result); f.onerror = () => no(f.error); f.readAsDataURL(b); });
+};
+async function paginaArchivio(r) {
+  disegnaFronte(r);
+  const corpo = `<section class="stampa-pagina modulo">${$('dettaglioFronte').innerHTML}</section>${stampaRetro(r)}`;
+  const stili = (await (await fetch('style.css')).text()).replaceAll('@media print', '@media all');
+  const logo = await inBase64(LOGO_BASE);
+  return `<!doctype html>
+<html lang="it" data-tema="chiaro"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Rapportino ${esc(dataIT(r.data))} ${esc(r.commessa)} - ${esc(r.caposquadraNome)}</title>
+<style>${stili}
+#stampa { max-width: 760px; margin: 0 auto; }
+@media screen { #stampa { padding: 12px; } .stampa-pagina { margin-bottom: 24px; } }
+</style></head><body><div id="stampa" class="stampa">${corpo.split(`src="${LOGO_BASE}"`).join(`src="${logo}"`)}</div></body></html>`;
+}
+// Salva il rapportino nell'archivio e lo segna nel database. Restituisce il percorso; se non riesce lancia l'errore.
+async function archiviaRapportino(r) {
+  if (!await archivioAccessibile()) throw new Error('cartella dell\'archivio non collegata');
+  const pos = posizioneArchivio(r);
+  await CartellaArchivio.salva(pos.percorso, pos.file, await paginaArchivio(r));
+  const campi = { archivioFile: pos.file, archivioPercorso: pos.testo, archivioCartella: CartellaArchivio.name(), archiviatoIl: serverTimestamp() };
+  await updateDoc(doc(db, 'rapportini', r.id), campi);
+  Object.assign(r, campi);
+  return `${CartellaArchivio.name()}/${pos.testo}/${pos.file}`;
+}
+$('btnArchivia').onclick = async () => {
+  const r = stato.aperto?.dati;
+  if (!r) return;
+  try {
+    const p = await archiviaRapportino(r);
+    $('infoArchivioRapportino').innerHTML = `✓ In archivio: <b>${esc(r.archivioPercorso)}/${esc(r.archivioFile)}</b>`;
+    avviso(`Salvato nell'archivio: ${p}`, 'ok');
+  } catch (err) { avviso(`Non salvato nell'archivio: ${err.message}`, 'errore'); }
+};
+
+// Cancellazione dei mesi vecchi: nell'app restano il mese in corso e i 4 precedenti (a giugno si può cancellare gennaio)
+const MESI_DA_TENERE = 5;
+function mesiCancellabili() {
+  const [a, m] = (window.__prova?.oggi || oggiISO()).split('-').map(Number);
+  const primoDaTenere = a * 12 + (m - 1) - (MESI_DA_TENERE - 1);
+  const elenco = [];
+  for (let x = 2026 * 12; x < primoDaTenere; x++) elenco.push(`${Math.floor(x / 12)}-${String(x % 12 + 1).padStart(2, '0')}`);
+  return elenco;
+}
+const nomeMese = m => `${MESI[Number(m.slice(5, 7)) - 1]} ${m.slice(0, 4)}`;
+async function controllaMesiVecchi() {
+  const box = $('mesiVecchi');
+  const mesi = mesiCancellabili();
+  box.innerHTML = '<div class="nessuno">Controllo in corso…</div>';
+  try {
+    const trovati = [];
+    for (let i = 0; i < mesi.length; i += 30) {
+      const snap = await getDocs(query(collection(db, 'rapportini'), where('stato', '==', 'convalidato'), where('mese', 'in', mesi.slice(i, i + 30))));
+      snap.docs.forEach(d => trovati.push({ id: d.id, ...d.data() }));
+    }
+    const fermi = (stato.arrivati || []).filter(r => mesi.includes(r.mese)).length;
+    const avvisoFermi = fermi ? `<div class="errore">${fermi} rapportini di quei mesi sono ancora da convalidare: non vengono cancellati.</div>` : '';
+    if (!trovati.length) { box.innerHTML = `${avvisoFermi}<div class="nessuno">Nessun mese da cancellare: nell'app ci sono solo gli ultimi ${MESI_DA_TENERE} mesi.</div>`; return; }
+    if (!await archivioAccessibile()) { box.innerHTML = '<div class="errore">Prima scegli la cartella dell\'archivio: senza non si può controllare cosa è stato salvato.</div>'; return; }
+    const perMese = new Map();
+    for (const r of trovati) {
+      const salvato = !!r.archivioFile && await CartellaArchivio.esiste(String(r.archivioPercorso).split('/'), r.archivioFile);
+      if (!perMese.has(r.mese)) perMese.set(r.mese, { ids: [], mancanti: [] });
+      perMese.get(r.mese).ids.push(r.id);
+      if (!salvato) perMese.get(r.mese).mancanti.push(r);
+    }
+    stato.mesiVecchi = perMese;
+    box.innerHTML = avvisoFermi + [...perMese.keys()].sort().map(m => {
+      const { ids, mancanti } = perMese.get(m);
+      return `<div class="voce">
+        <div class="voce-princ"><div class="voce-titolo">${nomeMese(m)}: ${ids.length} rapportini</div>
+          <div class="voce-sotto">${mancanti.length
+            ? `<b>${mancanti.length} non sono nell'archivio</b>: ${mancanti.slice(0, 8).map(r => `${esc(dataIT(r.data))} ${esc(r.commessa)}`).join(', ')}${mancanti.length > 8 ? '…' : ''}. Aprili dai Convalidati e premi "Salva nell'archivio".`
+            : 'Tutti presenti nell\'archivio.'}</div></div>
+        ${mancanti.length ? '' : `<button class="btn piccolo pericolo" data-cancella-mese="${esc(m)}">Cancella dal database</button>`}
+      </div>`;
+    }).join('');
+  } catch (err) { box.innerHTML = `<div class="errore">${esc(messaggioErrore(err))}</div>`; }
+}
+$('btnControllaVecchi').onclick = controllaMesiVecchi;
+$('mesiVecchi').addEventListener('click', async e => {
+  const m = e.target.closest('[data-cancella-mese]')?.dataset.cancellaMese;
+  if (!m) return;
+  const { ids } = stato.mesiVecchi.get(m);
+  if (!await conferma(`Cancellare ${nomeMese(m)}?`, `<p>Verranno cancellati dal database <b>${ids.length}</b> rapportini di ${nomeMese(m)}.</p>
+    <p>Sono tutti nell'archivio, ma dall'app <b>non si potranno più vedere né riscrivere su Excel</b>. L'operazione non si può annullare.</p>`, 'Cancella')) return;
+  try {
+    for (let i = 0; i < ids.length; i += 400) {
+      const lotto = writeBatch(db);
+      ids.slice(i, i + 400).forEach(id => lotto.delete(doc(db, 'rapportini', id)));
+      await lotto.commit();
+    }
+    avviso(`${nomeMese(m)}: cancellati ${ids.length} rapportini`, 'ok');
+    controllaMesiVecchi();
+  } catch (err) { avviso(messaggioErrore(err), 'errore'); }
+});
 
 // ---------------------------------------------------------------- elenchi dal file Excel
 function mostraInfoElenchi() {
@@ -2074,6 +2243,7 @@ $('btnChiudiArea').onclick = () => {
 if (EMULATORE) {
   window.__prova = {
     usaCartella: async handle => { await CartellaExcel.useHandle(handle); cartellaPronta(); },
+    usaArchivio: async handle => { await CartellaArchivio.useHandle(handle); archivioPronto(); },
     leggiRapportini: async () => (await getDocs(collection(db, 'rapportini'))).size,
     modificaRapportino: async (id, campi) => updateDoc(doc(db, 'rapportini', id), campi),
     scriviElenchi: async () => setDoc(doc(db, 'elenchi', 'automezzi'), { voci: ['PROVA'] }).then(() => 'scritto', e => e.code),
