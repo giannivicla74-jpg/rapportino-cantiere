@@ -1792,6 +1792,53 @@ $('mesiVecchi').addEventListener('click', async e => {
   } catch (err) { avviso(messaggioErrore(err), 'errore'); }
 });
 
+// ---------------------------------------------------------------- promemoria dello sviluppatore
+// Il testo sta nel database (config/promemoria, solo lo sviluppatore), mai nel codice pubblicato.
+// Si scrive in modo semplice: "## titolo", "- punto", "1. passo", "| cella | cella |" per le tabelle, **grassetto**.
+function promemoriaInHtml(testo) {
+  const riga = t => esc(t).replace(/\*\*(.+?)\*\*/g, '<b>$1</b>');
+  const fuori = [];
+  let blocco = null, righe = [];
+  const chiudi = () => {
+    if (blocco === 'ul' || blocco === 'ol') fuori.push(`<${blocco}>${righe.map(x => `<li>${x}</li>`).join('')}</${blocco}>`);
+    if (blocco === 'tab') fuori.push(`<div class="tabella-scorri"><table class="tab">${righe.map((c, i) => `<tr>${c.map(x => `<${i ? 'td' : 'th'}>${x}</${i ? 'td' : 'th'}>`).join('')}</tr>`).join('')}</table></div>`);
+    blocco = null; righe = [];
+  };
+  const inBlocco = (tipo, valore) => { if (blocco !== tipo) chiudi(); blocco = tipo; righe.push(valore); };
+  for (const l of String(testo || '').split(/\r?\n/)) {
+    const t = l.trim();
+    if (!t) chiudi();
+    else if (t.startsWith('## ')) { chiudi(); fuori.push(`<h3>${riga(t.slice(3))}</h3>`); }
+    else if (t.startsWith('- ')) inBlocco('ul', riga(t.slice(2)));
+    else if (/^\d+\. /.test(t)) inBlocco('ol', riga(t.replace(/^\d+\. /, '')));
+    else if (t.startsWith('|')) inBlocco('tab', t.replace(/^\||\|$/g, '').split('|').map(c => riga(c.trim())));
+    else { chiudi(); fuori.push(`<p>${riga(t)}</p>`); }
+  }
+  chiudi();
+  return fuori.join('');
+}
+let testoPromemoria = '';
+async function caricaPromemoria() {
+  try {
+    const snap = await getDoc(doc(db, 'config', 'promemoria'));
+    testoPromemoria = snap.exists() ? (snap.data().testo || '') : '';
+    $('testoPromemoria').innerHTML = testoPromemoria ? promemoriaInHtml(testoPromemoria) : '<div class="nessuno">Il promemoria è vuoto: premi Modifica per scriverlo.</div>';
+  } catch (err) { $('testoPromemoria').innerHTML = `<div class="errore">${esc(messaggioErrore(err))}</div>`; }
+}
+$('promemoria').addEventListener('toggle', () => { if ($('promemoria').open) caricaPromemoria(); });
+$('btnModificaPromemoria').onclick = async () => {
+  const scelta = finestra('Modifica il promemoria', `<textarea id="campoPromemoria" class="campo-promemoria" rows="18">${esc(testoPromemoria)}</textarea>
+    <p class="aiuto">Non scrivere PIN o password. Titoli: ## titolo · Punti: - testo · Passi: 1. testo · Tabelle: | cella | cella | · Grassetto: **testo**</p>`,
+    [{ testo: 'Annulla', valore: false }, { testo: 'Salva', valore: true, primario: true }]);
+  const campo = $('campoPromemoria');
+  if (!await scelta) return;
+  try {
+    await setDoc(doc(db, 'config', 'promemoria'), { testo: campo.value, aggiornatoIl: serverTimestamp(), aggiornatoDa: stato.utente.nome });
+    avviso('Promemoria salvato', 'ok');
+    caricaPromemoria();
+  } catch (err) { avviso(messaggioErrore(err), 'errore'); }
+};
+
 // ---------------------------------------------------------------- elenchi dal file Excel
 function mostraInfoElenchi() {
   const e = stato.elenchi;
@@ -2243,6 +2290,7 @@ $('btnChiudiArea').onclick = () => {
 if (EMULATORE) {
   window.__prova = {
     usaCartella: async handle => { await CartellaExcel.useHandle(handle); cartellaPronta(); },
+    leggiPromemoria: async () => getDoc(doc(db, 'config', 'promemoria')).then(() => 'letto', e => e.code),
     usaArchivio: async handle => { await CartellaArchivio.useHandle(handle); archivioPronto(); },
     leggiRapportini: async () => (await getDocs(collection(db, 'rapportini'))).size,
     modificaRapportino: async (id, campi) => updateDoc(doc(db, 'rapportini', id), campi),

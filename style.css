@@ -627,3 +627,11 @@ button.o-p { cursor: pointer; -webkit-tap-highlight-color: transparent; }
 /* elenco automezzi: numero progressivo e campo di modifica */
 .voce-num { font-weight: 700; color: var(--testo-tenue); min-width: 1.8em; text-align: right; }
 .campo-mezzo { width: 100%; font-size: 1rem; padding: 10px; border: 1px solid var(--bordo); border-radius: 8px; background: var(--carta); color: var(--testo); }
+/* promemoria dello sviluppatore */
+#promemoria summary { cursor: pointer; font-weight: 700; padding: 4px 0; }
+.promemoria { margin: 10px 0 14px; }
+.promemoria h3 { margin: 16px 0 6px; }
+.promemoria p { margin: 6px 0; }
+.promemoria ul, .promemoria ol { margin: 6px 0; padding-left: 22px; }
+.promemoria li { margin: 3px 0; }
+.campo-promemoria { width: 100%; font: inherit; font-size: .9rem; padding: 10px; border: 1px solid var(--bordo); border-radius: 8px; background: var(--carta); color: var(--testo); }
