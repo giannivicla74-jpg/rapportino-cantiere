@@ -173,6 +173,7 @@ function aggiornaTestate() {
 }
 aggiornaTestate();
 $('versioneApp').textContent = `Versione ${self.APP_VERSION} del ${self.APP_VERSION_DATE}`;
+$('versioneAccesso').textContent = `Versione ${self.APP_VERSION} del ${self.APP_VERSION_DATE}`;
 // Aggiornamenti: il service worker controlla se c'è una versione nuova ogni volta che l'app torna in primo piano
 // (l'app installata sul telefono spesso non si chiude davvero) e ogni 30 minuti. Quando la versione nuova è pronta
 // compare una barra con "Aggiorna": niente ricarica automatica, per non perdere ore che si stanno scrivendo.
