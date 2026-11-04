@@ -916,8 +916,9 @@ const oreVuote = () => Object.fromEntries(VOCI_ORE.map(([k]) => [k, '']));
 const orarioComune = (r, k) => { const s = new Set((r.operai || []).map(o => o[k]).filter(Boolean)); return s.size === 1 ? [...s][0] : ''; };
 
 // Ore proposte per un turno del blocco (l'ufficio le può sempre cambiare), come sul cartaceo:
-// totale = uscita - entrata - pausa; VIAGGIO = deposito→cantiere + cantiere→deposito (solo se entrata e uscita
-// sono gli orari del deposito); il resto è Ord. D fino a 8 ore, oltre è Straord. D.
+// totale = uscita - entrata - pausa; prima Ord. D fino a 8 ore; quello che avanza va in VIAGGIO fino al
+// viaggio vero (deposito→cantiere + cantiere→deposito, solo se entrata e uscita sono gli orari del deposito);
+// il resto è Straord. D.
 function proponiOreTurno(b, t, r) {
   const riga = b.righe[t];
   const totale = differenzaOre(riga.entrata, riga.uscita) ? Math.max(0, differenzaOre(riga.entrata, riga.uscita) - num(riga.pausa)) : 0;
@@ -929,10 +930,14 @@ function proponiOreTurno(b, t, r) {
       const v = differenzaOre(p, d) + differenzaOre(a, ri);
       if (v > 0 && v < totale) viaggio = v;
     }
-    const lavoro = totale - viaggio;
-    ore.or = fmtOre(Math.min(8, lavoro));
-    if (lavoro > 8) ore.sd = fmtOre(lavoro - 8);
-    if (viaggio) ore.v = fmtOre(viaggio);
+    // prima le 8 ordinarie; quello che avanza è viaggio (al massimo il viaggio vero), il resto straordinario
+    // es. 07:00-17:00 meno 1 di pausa = 9, viaggio vero 2 → Ord. D 8 + Viaggio 1
+    const ordinarie = Math.min(8, totale);
+    const resto = totale - ordinarie;
+    const vg = Math.min(viaggio, resto);
+    ore.or = fmtOre(ordinarie);
+    if (vg > 0) ore.v = fmtOre(vg);
+    if (resto - vg > 0) ore.sd = fmtOre(resto - vg);
   }
   b.ore[`t${t + 1}`] = ore;
 }
