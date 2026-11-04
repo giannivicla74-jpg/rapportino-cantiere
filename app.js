@@ -910,7 +910,8 @@ const orarioComune = (r, k) => { const s = new Set((r.operai || []).map(o => o[k
 // Ore proposte per un turno del blocco (l'ufficio le può sempre cambiare), come sul cartaceo:
 // totale = uscita - entrata - pausa; prima Ord. D fino a 8 ore; quello che avanza va in VIAGGIO fino al
 // viaggio vero (deposito→cantiere + cantiere→deposito, solo se entrata e uscita sono gli orari del deposito);
-// il resto è Straord. D.
+// il resto è Straord. D. Il viaggio pagato è al massimo VIAGGIO_MAX (1 ora): es. senza pausa 07-17 → 8 + 1 viaggio + 1 straord.
+const VIAGGIO_MAX = 1;
 function proponiOreTurno(b, t, r) {
   const riga = b.righe[t];
   const totale = differenzaOre(riga.entrata, riga.uscita) ? Math.max(0, differenzaOre(riga.entrata, riga.uscita) - num(riga.pausa)) : 0;
@@ -926,7 +927,7 @@ function proponiOreTurno(b, t, r) {
     // es. 07:00-17:00 meno 1 di pausa = 9, viaggio vero 2 → Ord. D 8 + Viaggio 1
     const ordinarie = Math.min(8, totale);
     const resto = totale - ordinarie;
-    const vg = Math.min(viaggio, resto);
+    const vg = Math.min(viaggio, resto, VIAGGIO_MAX); // viaggio pagato: al massimo 1 ora al giorno
     ore.or = fmtOre(ordinarie);
     if (vg > 0) ore.v = fmtOre(vg);
     if (resto - vg > 0) ore.sd = fmtOre(resto - vg);
