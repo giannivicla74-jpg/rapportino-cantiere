@@ -81,7 +81,10 @@ p { margin: .4rem 0 .8rem; }
 /* ---------- schermi ---------- */
 .schermo { min-height: 100vh; min-height: 100dvh; }
 .centro { display: flex; align-items: center; justify-content: center; padding: 16px; flex-direction: column; gap: 16px; }
-.caricamento { color: var(--testo-tenue); }
+.caricamento { color: var(--testo-tenue); text-align: center; max-width: 320px; }
+.avvio-icona { border-radius: 22%; box-shadow: var(--ombra); }
+.avvio-rotella { width: 34px; height: 34px; border: 4px solid var(--bordo); border-top-color: var(--primario); border-radius: 50%; animation: avvio-gira .9s linear infinite; }
+@keyframes avvio-gira { to { transform: rotate(360deg); } }
 .scheda {
   background: var(--carta); border: 1px solid var(--bordo); border-radius: var(--raggio);
   padding: 20px; box-shadow: var(--ombra);

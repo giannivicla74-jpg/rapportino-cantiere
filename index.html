@@ -26,8 +26,20 @@
 
   <!-- ===================== AVVIO ===================== -->
   <section id="scrAvvio" class="schermo centro">
-    <div class="caricamento">Avvio in corso…</div>
+    <img class="avvio-icona" src="icons/icon-192.png" alt="" width="96" height="96">
+    <div class="avvio-rotella" aria-hidden="true"></div>
+    <div class="caricamento" id="testoAvvio" role="status">Caricamento in corso…</div>
   </section>
+  <script>
+    // Se l'attesa si allunga lo si dice. Sta qui e non in app.js: deve funzionare anche se app.js non è ancora arrivato.
+    [[3000, 'Connessione lenta: ancora qualche secondo…'],
+     [15000, 'L\'app non riesce ad aprirsi. Controlla la connessione, poi chiudila e riaprila.']].forEach(([ms, testo]) => {
+      setTimeout(() => {
+        if (document.getElementById('scrAvvio').hidden) return;
+        document.getElementById('testoAvvio').textContent = testo;
+      }, ms);
+    });
+  </script>
 
   <!-- ===================== CONFIGURAZIONE MANCANTE ===================== -->
   <section id="scrConfig" class="schermo centro" hidden>
