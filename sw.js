@@ -13,11 +13,19 @@ const FILES = [
   'manifest.webmanifest', 'libs/jszip.min.js', 'icons/icon-192.png', 'icons/logo-vicla.png', 'icons/gc-codelab.png'
 ];
 
+// Le librerie usate da app.js: se lì cambia la versione di Firebase, va cambiata anche qui.
+const LIBRERIE = ['firebase-app.js', 'firebase-auth.js', 'firebase-firestore.js']
+  .map(f => 'https://www.gstatic.com/firebasejs/10.14.1/' + f);
+
 self.addEventListener('install', event => {
-  // "reload": file presi davvero dal server, mai da una copia vecchia del browser
-  event.waitUntil(caches.open(CACHE)
-    .then(cache => cache.addAll(FILES.map(f => new Request(f, { cache: 'reload' }))))
-    .then(() => self.skipWaiting()));
+  // "reload": file presi davvero dal server, mai da una copia vecchia del browser.
+  // Le librerie si salvano subito: senza, un telefono con poco campo potrebbe non riaprire l'app.
+  event.waitUntil(Promise.all([
+    caches.open(CACHE).then(cache => cache.addAll(FILES.map(f => new Request(f, { cache: 'reload' })))),
+    caches.open(CACHE_LIBRERIE).then(cache => Promise.all(LIBRERIE.map(async url => {
+      if (!await cache.match(url, { ignoreVary: true })) await cache.add(new Request(url, { mode: 'cors' }));
+    })))
+  ]).then(() => self.skipWaiting()));
 });
 
 self.addEventListener('activate', event => {
@@ -35,7 +43,7 @@ self.addEventListener('fetch', event => {
 
   if (url.origin === 'https://www.gstatic.com' && url.pathname.startsWith('/firebasejs/')) {
     event.respondWith(
-      caches.open(CACHE_LIBRERIE).then(cache => cache.match(req).then(hit => hit || fetch(req).then(res => {
+      caches.open(CACHE_LIBRERIE).then(cache => cache.match(req, { ignoreVary: true }).then(hit => hit || fetch(req).then(res => {
         if (res.ok) cache.put(req, res.clone());
         return res;
       })))
