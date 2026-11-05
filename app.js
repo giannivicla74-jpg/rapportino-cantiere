@@ -738,7 +738,7 @@ function inviaRapportino(dati) {
   const attesa = setTimeout(() => {
     if (consegnato) return;
     $('inviatoTitolo').textContent = 'Rapportino in partenza';
-    $('inviatoTesto').textContent = 'Ora non c\'è connessione: il rapportino è conservato sul telefono e partirà da solo appena torna il campo. Non uscire dall\'app finché non parte.';
+    $('inviatoTesto').textContent = 'Ora non c\'è connessione: il rapportino è conservato sul telefono e partirà da solo. Quando torna il campo tieni aperta l\'app: può volerci qualche minuto. Non rifare il rapportino e non premere Esci.';
     controllaCoda();
   }, 6000);
 
@@ -760,7 +760,7 @@ function inviaRapportino(dati) {
 function controllaCoda() {
   const n = ls.get(chiaveCoda()) || 0;
   $('avvisoCoda').hidden = n === 0;
-  $('avvisoCoda').textContent = `⏳ ${n} rapportino/i in attesa di connessione: partiranno da soli appena c'è campo.`;
+  $('avvisoCoda').textContent = `⏳ ${n} rapportino/i in attesa di connessione: partiranno da soli. Quando torna il campo tieni aperta l'app: può volerci qualche minuto. Non rifarli e non premere Esci.`;
   if (n > 0) {
     waitForPendingWrites(db).then(() => { ls.del(chiaveCoda()); $('avvisoCoda').hidden = true; }).catch(() => {});
   }
