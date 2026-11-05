@@ -1,18 +1,23 @@
 // Service worker del Rapportino di Cantiere: conserva i file dell'app per aprirla anche senza campo.
-// - File dell'app: "prima la rete" (con internet si prende sempre la versione aggiornata, altrimenti la copia).
+// - File dell'app: "prima la copia", così con il campo debole l'app si apre subito e non resta ferma sull'icona.
+//   La rete serve solo a scaricare in sottofondo una versione nuova, tutta insieme.
 // - Librerie di Firebase (gstatic.com): "prima la copia", perché ogni versione non cambia mai.
 // - I dati (Firestore) non passano di qui: li gestisce Firebase con la sua cache.
 // Il numero di versione sta in version.js: cambiandolo, il browser riconosce l'aggiornamento.
 importScripts('version.js');
 const CACHE = 'rapportino-' + self.APP_VERSION;
 const CACHE_LIBRERIE = 'rapportino-librerie';
+// Le icone grandi le scarica il telefono per conto suo: qui non servono e renderebbero pesante l'aggiornamento.
 const FILES = [
   './', 'index.html', 'style.css', 'version.js', 'app.js', 'firebase-config.js', 'excel.js', 'cartella.js', 'archivio.js',
-  'manifest.webmanifest', 'libs/jszip.min.js', 'icons/icon-192.png', 'icons/icon-512.png', 'icons/icon-maskable-512.png', 'icons/logo-vicla.png', 'icons/gc-codelab.png'
+  'manifest.webmanifest', 'libs/jszip.min.js', 'icons/icon-192.png', 'icons/logo-vicla.png', 'icons/gc-codelab.png'
 ];
 
 self.addEventListener('install', event => {
-  event.waitUntil(caches.open(CACHE).then(cache => cache.addAll(FILES)).then(() => self.skipWaiting()));
+  // "reload": file presi davvero dal server, mai da una copia vecchia del browser
+  event.waitUntil(caches.open(CACHE)
+    .then(cache => cache.addAll(FILES.map(f => new Request(f, { cache: 'reload' }))))
+    .then(() => self.skipWaiting()));
 });
 
 self.addEventListener('activate', event => {
@@ -39,18 +44,8 @@ self.addEventListener('fetch', event => {
   }
 
   if (url.origin !== self.location.origin) return;
-  // "no-cache": chiede sempre al server se il file è cambiato (GitHub Pages altrimenti fa usare
-  // per 10 minuti la copia già scaricata, e il telefono resta sulla versione vecchia)
-  const fresca = req.mode === 'navigate'
-    ? new Request(req.url, { cache: 'no-cache', credentials: 'same-origin' })
-    : new Request(req, { cache: 'no-cache' });
+  // la rete si usa solo per ciò che non è in copia (per esempio le icone grandi)
   event.respondWith(
-    fetch(fresca)
-      .then(res => {
-        const copy = res.clone();
-        caches.open(CACHE).then(cache => cache.put(req, copy));
-        return res;
-      })
-      .catch(() => caches.match(req, { ignoreSearch: true }))
+    caches.open(CACHE).then(cache => cache.match(req, { ignoreSearch: true }).then(hit => hit || fetch(req)))
   );
 });

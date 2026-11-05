@@ -230,6 +230,14 @@ const config = EMULATORE
   : firebaseConfig;
 const configurato = !Object.values(config).some(v => String(v).includes('DA-COMPILARE'));
 let app, auth, db;
+// All'apertura Firebase verifica online l'accesso già fatto e, con il campo debole, aspetterebbe 30 secondi.
+// Solo durante l'avvio quella verifica ha 2 secondi: poi si entra con l'accesso salvato nel telefono.
+// Le regole del database continuano a controllare ogni lettura e scrittura.
+let avvioAccesso = true;
+const fetchVero = self.fetch.bind(self);
+self.fetch = (url, opzioni) => avvioAccesso && self.AbortSignal?.timeout && /accounts:lookup|securetoken/.test(String(url))
+  ? fetchVero(url, { ...opzioni, signal: AbortSignal.timeout(2000) })
+  : fetchVero(url, opzioni);
 if (!configurato) {
   mostraSchermo('scrConfig');
 } else {
@@ -261,6 +269,7 @@ const stato = {
 
 // ---------------------------------------------------------------- accesso
 async function utenteCambiato(user) {
+  avvioAccesso = false;
   stato.annulla.forEach(f => { try { f(); } catch (_) {} });
   stato.annulla = [];
   stato.areaAperta = false;
@@ -274,7 +283,15 @@ async function utenteCambiato(user) {
   let profilo;
   try {
     const ref = doc(db, 'utenti', user.uid);
-    const snap = await getDoc(ref).catch(() => getDocFromCache(ref));
+    // Con il campo debole non si resta ad aspettare: dopo 1,5 secondi si usa il profilo già nel telefono.
+    // Al primo accesso la copia non c'è ancora, e allora si attende la risposta del server.
+    const dalServer = getDoc(ref);
+    let snap;
+    try {
+      snap = await Promise.race([dalServer, new Promise((_, no) => setTimeout(no, 1500))]);
+    } catch (_) {
+      snap = await getDocFromCache(ref).catch(() => dalServer);
+    }
     profilo = snap.exists() ? snap.data() : null;
   } catch (err) {
     $('nonAbilitatoTesto').textContent = 'Non riesco a leggere il tuo profilo. Al primo accesso serve internet: riprova quando c\'è campo.';
