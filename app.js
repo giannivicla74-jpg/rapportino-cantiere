@@ -443,7 +443,7 @@ function avviaCompilazione() {
   caricaBozza();
   const off = onSnapshot(doc(db, 'elenchi', 'correnti'), snap => {
     const d = snap.exists() ? snap.data() : {};
-    stato.elenchi = { operai: d.operai || [], commesse: d.commesse || [], nascoste: d.nascoste || [], file: d.file || '', aggiornatoIl: d.aggiornatoIl };
+    stato.elenchi = { operai: d.operai || [], commesse: d.commesse || [], nascoste: d.nascoste || [], viaggi: d.viaggi || {}, file: d.file || '', aggiornatoIl: d.aggiornatoIl };
     $('erroreElenchi').hidden = stato.elenchi.operai.length > 0;
     $('erroreElenchi').textContent = 'Gli elenchi di operai e commesse non sono ancora stati caricati dall\'ufficio (Elenchi e utenti > Aggiorna elenchi).';
     riempiCommesse();
@@ -933,8 +933,15 @@ const orarioComune = (r, k) => { const s = new Set((r.operai || []).map(o => o[k
 // Ore proposte per un turno del blocco (l'ufficio le può sempre cambiare), come sul cartaceo:
 // totale = uscita - entrata - pausa; prima Ord. D fino a 8 ore; quello che avanza va in VIAGGIO fino al
 // viaggio vero (deposito→cantiere + cantiere→deposito, solo se entrata e uscita sono gli orari del deposito);
-// il resto è Straord. D. Il viaggio pagato è al massimo VIAGGIO_MAX (1 ora): es. senza pausa 07-17 → 8 + 1 viaggio + 1 straord.
+// il resto è Straord. D. Il viaggio pagato ha un massimo per commessa: es. senza pausa 07-17 → 8 + 1 viaggio + 1 straord.
+// Il massimo si sceglie nell'area sviluppatore (elenchi/correnti, campo viaggi). Se non è stato scelto vale 1 ora,
+// tranne il deposito COMM.0, dove il viaggio non esiste.
 const VIAGGIO_MAX = 1;
+const viaggioMassimo = c => {
+  const scelto = stato.elenchi.viaggi?.[c];
+  if (scelto !== undefined) return scelto;
+  return /^COMM\.0$/i.test(String(c || '').trim()) ? 0 : VIAGGIO_MAX;
+};
 function proponiOreTurno(b, t, r) {
   const riga = b.righe[t];
   const totale = differenzaOre(riga.entrata, riga.uscita) ? Math.max(0, differenzaOre(riga.entrata, riga.uscita) - num(riga.pausa)) : 0;
@@ -950,7 +957,7 @@ function proponiOreTurno(b, t, r) {
     // es. 07:00-17:00 meno 1 di pausa = 9, viaggio vero 2 → Ord. D 8 + Viaggio 1
     const ordinarie = Math.min(8, totale);
     const resto = totale - ordinarie;
-    const vg = Math.min(viaggio, resto, VIAGGIO_MAX); // viaggio pagato: al massimo 1 ora al giorno
+    const vg = Math.min(viaggio, resto, viaggioMassimo(riga.commessa || r.commessa));
     ore.or = fmtOre(ordinarie);
     if (vg > 0) ore.v = fmtOre(vg);
     if (resto - vg > 0) ore.sd = fmtOre(resto - vg);
@@ -1866,7 +1873,20 @@ function mostraInfoElenchi() {
     const si = !e.nascoste.includes(c);
     return `<label class="chip ${si ? 'si' : ''}"><input type="checkbox" data-voce="${esc(c)}" ${si ? 'checked' : ''}>${esc(c)}</label>`;
   }).join('');
+  // Viaggio massimo per commessa: assenze, ferie e altre voci nascoste non servono
+  const scelte = [[1, '1 ora'], [0.5, 'Mezz\'ora'], [0, 'Nessuno']];
+  $('listaViaggi').innerHTML = e.commesse.filter(c => !e.nascoste.includes(c)).map(c => {
+    const max = viaggioMassimo(c);
+    return `<label class="riga-viaggio"><span>${esc(c)}</span><select data-viaggio-voce="${esc(c)}">${scelte.map(([v, t]) => `<option value="${v}" ${v === max ? 'selected' : ''}>${t}</option>`).join('')}</select></label>`;
+  }).join('');
 }
+
+$('listaViaggi').addEventListener('change', async e => {
+  const voce = e.target.dataset.viaggioVoce;
+  if (voce === undefined) return;
+  try { await updateDoc(doc(db, 'elenchi', 'correnti'), { viaggi: { ...stato.elenchi.viaggi, [voce]: Number(e.target.value) } }); }
+  catch (err) { avviso(messaggioErrore(err), 'errore'); mostraInfoElenchi(); }
+});
 
 // Voci che non sono commesse di lavoro: nascoste in automatico sui telefoni
 const VOCE_NON_COMMESSA = /^(ASSENTE|FERIE|MALATTIA|SMONTO|CORSO|VISITA|PERMESSO|ROL\b|INFORTUNIO)/i;
@@ -1895,7 +1915,8 @@ $('btnAggiornaElenchi').onclick = async () => {
     // le scelte già fatte dal responsabile restano; le voci nuove seguono la regola automatica
     const giaViste = new Set(stato.elenchi.commesse);
     const nascoste = commesse.filter(c => giaViste.has(c) ? stato.elenchi.nascoste.includes(c) : VOCE_NON_COMMESSA.test(c));
-    await setDoc(doc(db, 'elenchi', 'correnti'), { operai, commesse, nascoste, file: master, aggiornatoIl: serverTimestamp(), aggiornatoDa: stato.utente.nome });
+    // merge: le scelte sul viaggio per commessa non si toccano
+    await setDoc(doc(db, 'elenchi', 'correnti'), { operai, commesse, nascoste, file: master, aggiornatoIl: serverTimestamp(), aggiornatoDa: stato.utente.nome }, { merge: true });
     avviso('Elenchi aggiornati', 'ok');
   } catch (err) { await finestra('Elenchi non aggiornati', `<p>${esc(messaggioErrore(err))}</p>`); }
 };
