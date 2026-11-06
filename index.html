@@ -165,6 +165,7 @@
           </div>
           <div class="orari-tutti" id="orariTutti" hidden>
             <div class="orari-tutti-titolo">Stessi orari per tutti i presenti</div>
+            <button type="button" class="btn primario piccolo tasto-standard" id="btnOrarioStandard" hidden></button>
             <div class="orari">
               <label><span>Partenza deposito</span><input type="time" data-tutti="partenza"></label>
               <label><span>Dalle</span><input type="time" data-tutti="dalle"></label>
@@ -306,6 +307,21 @@
               <button type="button" class="btn" id="btnIntestazioneBase">Rimetti i testi originali</button>
               <button type="submit" class="btn primario" id="btnSalvaIntestazione">Salva intestazione</button>
             </div>
+          </form>
+        </div>
+
+        <h2>Orario standard</h2>
+        <div class="scheda">
+          <p>Nel rapportino il caposquadra trova un pulsante con questo nome: con un tocco questi orari vanno a tutti i presenti, e si possono sempre cambiare riga per riga. Lasciando vuoti tutti gli orari, il pulsante non compare.</p>
+          <form id="formOrarioStandard">
+            <label class="campo"><span>Nome del pulsante</span><input data-standard="nome" maxlength="40" autocomplete="off"></label>
+            <div class="griglia-2">
+              <label class="campo"><span>Partenza deposito</span><input type="time" data-standard="partenza"></label>
+              <label class="campo"><span>Dalle</span><input type="time" data-standard="dalle"></label>
+              <label class="campo"><span>Alle</span><input type="time" data-standard="alle"></label>
+              <label class="campo"><span>Rientro deposito</span><input type="time" data-standard="rientro"></label>
+            </div>
+            <button class="btn primario" type="submit">Salva orario standard</button>
           </form>
         </div>
 

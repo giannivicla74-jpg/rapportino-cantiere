@@ -268,6 +268,7 @@ const stato = {
   utente: null,          // { uid, nome, ruolo, codice }
   elenchi: { operai: [], commesse: [] },
   responsabili: { voci: [], predefinito: '' }, // responsabili di commessa (dal database)
+  orarioStandard: {},    // orari del pulsante "Orario standard" (dal database)
   presenti: new Map(),   // nome -> { partenza, dalle, alle, rientro }
   automezzi: [],         // elenco dei mezzi (dal database)
   mezziScelti: new Set(), // mezzi spuntati nel rapportino in compilazione
@@ -480,6 +481,13 @@ function avviaCompilazione() {
     disegnaGestioneResponsabili();
   }, () => {});
   stato.annulla.push(offR);
+  // orario standard: lo imposta lo sviluppatore; finché non lo salva valgono gli orari di partenza
+  const offO = onSnapshot(doc(db, 'elenchi', 'orarioStandard'), snap => {
+    stato.orarioStandard = snap.exists() ? snap.data() : { ...ORARIO_STANDARD_BASE };
+    aggiornaPulsanteStandard();
+    disegnaGestioneOrarioStandard();
+  }, () => {});
+  stato.annulla.push(offO);
   // intestazione del modulo (testi e logo): la decide l'ufficio
   const offI = onSnapshot(doc(db, 'elenchi', 'intestazione'), snap => {
     // un'intestazione salvata con la grafica vecchia (senza ragione sociale) non vale più: si usa la nuova, tenendo il logo
@@ -625,10 +633,10 @@ $('cercaOperaio').addEventListener('input', filtraOperai);
 
 function aggiornaContaPresenti() {
   $('contaPresenti').textContent = stato.presenti.size;
-  $('orariTutti').hidden = stato.presenti.size < 2;
+  $('orariTutti').hidden = stato.presenti.size < 1;
 }
 
-$('btnApplicaTutti').onclick = () => {
+function applicaOrariATutti() {
   const valori = {};
   document.querySelectorAll('[data-tutti]').forEach(inp => { if (inp.value) valori[inp.dataset.tutti] = inp.value; });
   if (Object.keys(valori).length === 0) { avviso('Scrivi prima almeno un orario qui sopra', 'errore'); return; }
@@ -637,8 +645,41 @@ $('btnApplicaTutti').onclick = () => {
     div.querySelectorAll('[data-orario]').forEach(inp => { if (valori[inp.dataset.orario]) inp.value = valori[inp.dataset.orario]; });
   });
   salvaBozza();
-  avviso(`Orari applicati a ${stato.presenti.size} operai`, 'ok');
+  const n = stato.presenti.size;
+  avviso(`Orari applicati a ${n} ${n === 1 ? 'operaio' : 'operai'}`, 'ok');
+}
+$('btnApplicaTutti').onclick = applicaOrariATutti;
+
+// Orario standard: si imposta nell'area sviluppatore (elenchi/orarioStandard). Il pulsante riempie il riquadro
+// e applica subito gli orari ai presenti; le righe degli operai restano sempre modificabili.
+const ORARIO_STANDARD_BASE = { nome: 'Orario standard 8 & 1', partenza: '07:00', dalle: '07:30', alle: '16:30', rientro: '17:00' };
+function aggiornaPulsanteStandard() {
+  const s = stato.orarioStandard;
+  $('btnOrarioStandard').textContent = s.nome || ORARIO_STANDARD_BASE.nome;
+  $('btnOrarioStandard').hidden = !CHIAVI_ORARI.some(k => s[k]);
+}
+$('btnOrarioStandard').onclick = () => {
+  document.querySelectorAll('[data-tutti]').forEach(inp => { inp.value = stato.orarioStandard[inp.dataset.tutti] || ''; });
+  applicaOrariATutti();
 };
+let orarioStandardToccato = false; // lo sviluppatore sta scrivendo: non sovrascrivere i suoi campi
+function disegnaGestioneOrarioStandard() {
+  if (stato.utente?.ruolo !== 'responsabile' || orarioStandardToccato) return;
+  document.querySelectorAll('[data-standard]').forEach(inp => { inp.value = stato.orarioStandard[inp.dataset.standard] || ''; });
+}
+$('formOrarioStandard').addEventListener('input', () => { orarioStandardToccato = true; });
+$('formOrarioStandard').addEventListener('submit', async e => {
+  e.preventDefault();
+  const v = {};
+  document.querySelectorAll('[data-standard]').forEach(inp => { v[inp.dataset.standard] = inp.value.trim(); });
+  v.nome = v.nome.replace(/\s+/g, ' ') || ORARIO_STANDARD_BASE.nome;
+  try {
+    await setDoc(doc(db, 'elenchi', 'orarioStandard'), { ...v, aggiornatoIl: serverTimestamp(), aggiornatoDa: stato.utente.nome });
+    orarioStandardToccato = false;
+    disegnaGestioneOrarioStandard();
+    avviso('Orario standard salvato', 'ok');
+  } catch (err) { avviso(messaggioErrore(err), 'errore'); }
+});
 
 // Bozza sul telefono finché il rapportino non viene inviato (se si chiude l'app non si perde il lavoro)
 // Responsabile di commessa: resta la scelta della bozza, altrimenti il predefinito.

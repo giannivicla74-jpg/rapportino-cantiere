@@ -184,6 +184,8 @@ input[readonly] { background: var(--evidenza); }
 .orari-tutti { border: 1px dashed var(--bordo); border-radius: 8px; padding: 10px 12px; margin-bottom: 10px; }
 .orari-tutti-titolo { font-size: .85rem; font-weight: 700; margin-bottom: 6px; }
 .orari-tutti .btn { margin-top: 8px; }
+.orari-tutti .tasto-standard { display: block; margin: 0 0 10px; }
+.orari-tutti .tasto-standard[hidden] { display: none; }
 .nessuno { padding: 16px; color: var(--testo-tenue); text-align: center; }
 
 .spunta-grande { font-size: 3.5rem; color: var(--ok); line-height: 1; margin-bottom: 8px; }
