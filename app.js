@@ -272,6 +272,7 @@ const stato = {
   presenti: new Map(),   // nome -> { partenza, dalle, alle, rientro }
   automezzi: [],         // elenco dei mezzi (dal database)
   mezziScelti: new Set(), // mezzi spuntati nel rapportino in compilazione
+  autisti: new Map(),    // mezzo -> autista nel rapportino in compilazione
   arrivati: [],
   aperto: null,          // rapportino aperto dal responsabile: { id, dati, blocchi }
   cartellaPronta: false,
@@ -515,10 +516,26 @@ function disegnaMezzi() {
       <option value="">${scelti.length ? '+ Aggiungi un altro automezzo' : '— Scegli l\'automezzo —'}</option>
       ${liberi.map(m => `<option>${esc(m)}</option>`).join('')}
     </select>` : ''}
-    <div class="mezzi-scelti">${scelti.map(m => `<span class="chip si">${esc(m)}
-      <button type="button" class="togli-mezzo" data-togli="${esc(m)}" aria-label="Togli ${esc(m)}">✕</button></span>`).join('')}</div>`;
+    <div class="mezzi-scelti">${scelti.map(m => {
+      // l'autista si sceglie tra gli operai presenti in questo rapportino
+      const autista = stato.autisti.get(m) || '';
+      const presenti = stato.elenchi.operai.filter(n => stato.presenti.has(n));
+      return `<div class="riga-mezzo"><span class="chip si">${esc(m)}
+        <button type="button" class="togli-mezzo" data-togli="${esc(m)}" aria-label="Togli ${esc(m)}">✕</button></span>
+        <label class="scelta-autista"><span>Autista:</span><select data-autista-mezzo="${esc(m)}" aria-label="Autista di ${esc(m)}">
+          <option value="">${presenti.length ? '— Scegli —' : 'Segna prima i presenti'}</option>
+          ${presenti.map(n => `<option ${n === autista ? 'selected' : ''}>${esc(n)}</option>`).join('')}
+        </select></label></div>`;
+    }).join('')}</div>`;
 }
 $('rAutomezzi').addEventListener('change', e => {
+  const mezzoAutista = e.target.dataset.autistaMezzo;
+  if (mezzoAutista !== undefined) {
+    if (e.target.value) stato.autisti.set(mezzoAutista, e.target.value);
+    else stato.autisti.delete(mezzoAutista);
+    salvaBozza();
+    return;
+  }
   if (e.target.id !== 'sceltaMezzo' || !e.target.value) return;
   stato.mezziScelti.add(e.target.value);
   disegnaMezzi();
@@ -528,6 +545,7 @@ $('rAutomezzi').addEventListener('click', e => {
   const m = e.target.dataset.togli;
   if (m === undefined) return;
   stato.mezziScelti.delete(m);
+  stato.autisti.delete(m);
   disegnaMezzi();
   salvaBozza();
 });
@@ -634,6 +652,9 @@ $('cercaOperaio').addEventListener('input', filtraOperai);
 function aggiornaContaPresenti() {
   $('contaPresenti').textContent = stato.presenti.size;
   $('orariTutti').hidden = stato.presenti.size < 1;
+  // l'autista deve essere tra i presenti: se un operaio viene tolto, il suo mezzo resta senza autista
+  for (const [m, a] of [...stato.autisti]) if (!stato.presenti.has(a)) stato.autisti.delete(m);
+  disegnaMezzi();
 }
 
 function applicaOrariATutti() {
@@ -707,7 +728,7 @@ $('btnPausa').onclick = () => {
 
 function salvaBozza() {
   if (!stato.utente) return;
-  const b = { commessa: $('rCommessa').value, data: $('rData').value, presenti: Object.fromEntries(stato.presenti), automezzi: [...stato.mezziScelti], caposquadra: $('rCaposquadraScelta').value };
+  const b = { commessa: $('rCommessa').value, data: $('rData').value, presenti: Object.fromEntries(stato.presenti), automezzi: [...stato.mezziScelti], autisti: Object.fromEntries(stato.autisti), caposquadra: $('rCaposquadraScelta').value };
   for (const [k, id] of Object.entries(CAMPI_TESTO)) b[k] = $(id).value;
   ls.set(chiaveBozza(), b);
 }
@@ -723,6 +744,7 @@ function caricaBozza() {
   $('rCaposquadraScelta').value = '';
   riempiCapisquadra();
   stato.mezziScelti = new Set(Array.isArray(b.automezzi) ? b.automezzi : []);
+  stato.autisti = new Map(Object.entries(b.autisti || {}));
   riempiCommesse();
   disegnaOperai();
   disegnaMezzi();
@@ -752,6 +774,8 @@ $('formRapportino').addEventListener('submit', async e => {
   if (!data) errori.push('scrivi la <b>data</b>');
   if (stato.presenti.size === 0) errori.push('segna almeno un <b>operaio presente</b> (casella P)');
   if (data && data > oggiISO()) errori.push('la data è nel futuro: controlla');
+  const mezziInviati = stato.automezzi.filter(m => stato.mezziScelti.has(m));
+  mezziInviati.filter(m => !stato.autisti.get(m)).forEach(m => errori.push(`scegli l'<b>autista</b> di <b>${esc(m)}</b>`));
   if (errori.length) {
     await finestra('Manca qualcosa', `<ul>${errori.map(x => `<li>${x}</li>`).join('')}</ul>`);
     return;
@@ -768,10 +792,16 @@ $('formRapportino').addEventListener('submit', async e => {
     <p>${senzaOrari.length === operai.length ? 'Nessun operaio ha' : `${senzaOrari.length} operai su ${operai.length} non hanno`} l'orario di lavoro in cantiere (Dalle … Alle …):</p>
     <ul>${senzaOrari.map(o => `<li>${esc(o.nome)}</li>`).join('')}</ul>
     <p>Se hai scritto gli orari in "Stessi orari per tutti i presenti", controlla che compaiano nelle righe.</p>`, 'Continua lo stesso')) return;
+  const autistiMezzi = mezziInviati.map(mezzo => ({ mezzo, autista: stato.autisti.get(mezzo) }));
+  const doppi = [...new Set(autistiMezzi.map(x => x.autista).filter((a, i, v) => v.indexOf(a) !== i))];
+  if (doppi.length && !await conferma('Stesso autista su più automezzi', `
+    <ul>${doppi.map(a => `<li><b>${esc(a)}</b>: ${autistiMezzi.filter(x => x.autista === a).map(x => esc(x.mezzo)).join(', ')}</li>`).join('')}</ul>
+    <p>È giusto? Può capitare se si sono alternati alla guida.</p>`, 'Continua lo stesso')) return;
   const ok = await conferma('Inviare il rapportino?', `
     <p><b>${dataIT(data)}</b> · commessa <b>${esc(commessa)}</b></p>
     <p>${operai.length} operai presenti:</p>
     <ul>${operai.map(o => `<li>${esc(o.nome)}${o.dalle || o.alle ? ` <span class="aiuto">(${esc(o.dalle)}–${esc(o.alle)})</span>` : ''}</li>`).join('')}</ul>
+    ${autistiMezzi.length ? `<p>Automezzi:</p><ul>${autistiMezzi.map(x => `<li>${esc(x.mezzo)} – Autista: ${esc(x.autista)}</li>`).join('')}</ul>` : ''}
     <p class="errore">Dopo l'invio <b>non potrai più vederlo né modificarlo</b>.</p>`, 'Invia');
   if (!ok) return;
 
@@ -787,7 +817,8 @@ $('formRapportino').addEventListener('submit', async e => {
     compilatoDaUfficio: compilaUfficio(),
     compilatoDaNome: stato.utente.nome,
     operai,
-    automezzi: stato.automezzi.filter(m => stato.mezziScelti.has(m)), // nell'ordine dell'elenco
+    automezzi: mezziInviati, // nell'ordine dell'elenco
+    autistiMezzi,
     // testi dell'intestazione in vigore al momento dell'invio (es. la revisione del modulo)
     intestazione: Object.fromEntries(Object.keys(INTESTAZIONE_BASE).map(k => [k, intestazione[k] ?? INTESTAZIONE_BASE[k]])),
     mensaDalle: $('rMensaDalle').value,
@@ -1234,7 +1265,10 @@ function disegnaFronte(r) {
     ${tabellaOperaiFronte(r)}
     <div class="riquadro">
       <div class="r-riga">
-        <div class="r-cella largo"><span class="r-et">AUTOMEZZI UTILIZZATI:</span>${testo(Array.isArray(r.automezzi) ? r.automezzi.join('\n') : r.automezzi)}</div>
+        <div class="r-cella largo"><span class="r-et">AUTOMEZZI UTILIZZATI:</span>${testo(Array.isArray(r.automezzi)
+          // i rapportini inviati prima della versione 6.6 non hanno l'autista
+          ? r.automezzi.map(m => { const a = (r.autistiMezzi || []).find(x => x.mezzo === m)?.autista; return a ? `${m} – Autista: ${a}` : m; }).join('\n')
+          : r.automezzi)}</div>
         <div class="r-cella"><span class="r-et normale">ORARIO DI PAUSA MENSA:</span>
           <div class="dalle-alle"><span>Dalle</span><b>${esc(r.mensaDalle) || '…'}</b><span>Alle</span><b>${esc(r.mensaAlle) || '…'}</b></div></div>
       </div>
