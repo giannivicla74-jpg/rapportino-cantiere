@@ -623,6 +623,19 @@ $('btnApplicaTutti').onclick = () => {
 };
 
 // Bozza sul telefono finché il rapportino non viene inviato (se si chiude l'app non si perde il lavoro)
+const PAUSA_DALLE = '12:00', PAUSA_ALLE = '13:00';
+function aggiornaTastoPausa() {
+  $('btnPausa').textContent = $('rMensaDalle').value || $('rMensaAlle').value ? 'Nessuna pausa' : `Rimetti ${PAUSA_DALLE}–${PAUSA_ALLE}`;
+}
+$('btnPausa').onclick = () => {
+  const vuota = !$('rMensaDalle').value && !$('rMensaAlle').value;
+  $('rMensaDalle').value = vuota ? PAUSA_DALLE : '';
+  $('rMensaAlle').value = vuota ? PAUSA_ALLE : '';
+  aggiornaTastoPausa();
+  salvaBozza();
+};
+['rMensaDalle', 'rMensaAlle'].forEach(id => $(id).addEventListener('input', aggiornaTastoPausa));
+
 function salvaBozza() {
   if (!stato.utente) return;
   const b = { commessa: $('rCommessa').value, data: $('rData').value, presenti: Object.fromEntries(stato.presenti), automezzi: [...stato.mezziScelti], caposquadra: $('rCaposquadraScelta').value };
@@ -633,6 +646,9 @@ function caricaBozza() {
   const b = ls.get(chiaveBozza()) || {};
   $('rData').value = b.data || oggiISO();
   for (const [k, id] of Object.entries(CAMPI_TESTO)) $(id).value = b[k] || '';
+  // Pausa mensa già scritta per i rapportini nuovi; in una bozza si rispetta quello che c'è, anche se vuoto
+  if (!('mensaDalle' in b)) { $('rMensaDalle').value = PAUSA_DALLE; $('rMensaAlle').value = PAUSA_ALLE; }
+  aggiornaTastoPausa();
   stato.presenti = new Map(Object.entries(b.presenti || {}));
   $('rCaposquadraScelta').value = '';
   riempiCapisquadra();
