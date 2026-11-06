@@ -305,6 +305,9 @@ table.tab { border-collapse: collapse; width: 100%; font-size: .92rem; }
 .r-cella { flex: 1 1 0; min-width: 0; display: flex; align-items: center; gap: 8px; padding: 4px 8px; margin: 0; }
 .r-cella + .r-cella { border-left: 1px solid #111; }
 .r-cella.largo { flex-grow: 1.6; }
+/* il nome del responsabile si legge sempre tutto: se non c'è posto accanto all'etichetta, il menu va a capo */
+.r-cella:has(#rResponsabile) { flex-wrap: wrap; }
+#rResponsabile { flex: 1 1 260px; min-width: 0; }
 .r-cella:has(textarea), .r-cella:has(.testo) { flex-direction: column; align-items: stretch; padding: 0; gap: 0; }
 .r-et { font-family: "Times New Roman", Times, Georgia, serif; font-style: italic; font-weight: 700; white-space: nowrap; font-size: 1.02rem; }
 .r-et.grande { font-size: 1.15rem; }
