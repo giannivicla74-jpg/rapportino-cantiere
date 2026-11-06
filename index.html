@@ -178,9 +178,9 @@
             <div class="operaio testa">
               <div class="o-nome">COGNOME E NOME</div>
               <div class="o-p">P</div>
-              <div class="o-ora o-partenza">ORARIO PARTENZA DA DEPOSITO</div>
-              <div class="o-ora o-cantiere">ORARIO DI LAVORO IN CANTIERE</div>
-              <div class="o-ora o-rientro">ORARIO RIENTRO IN DEPOSITO</div>
+              <div class="o-ora o-partenza" id="titoloPartenza">ORARIO PARTENZA DA DEPOSITO</div>
+              <div class="o-ora o-cantiere" id="titoloCantiere">ORARIO DI LAVORO IN CANTIERE</div>
+              <div class="o-ora o-rientro" id="titoloRientro">ORARIO RIENTRO IN DEPOSITO</div>
             </div>
             <div id="listaOperai"></div>
           </div>
@@ -293,8 +293,8 @@
 
         <h2>Intestazione del modulo</h2>
         <div class="scheda">
-          <p>Testi e logo in cima al rapportino. Le modifiche valgono per i rapportini nuovi: quelli già inviati
-            restano con l'intestazione che avevano.</p>
+          <p>Testi e logo in cima al rapportino, e titoli delle colonne degli orari. Le modifiche valgono per i rapportini nuovi: quelli già inviati
+            restano con l'intestazione e i titoli che avevano.</p>
           <div class="anteprima-intestazione modulo" id="anteprimaIntestazione"></div>
           <form id="formIntestazione">
             <div class="griglia-2" id="campiIntestazione"></div>

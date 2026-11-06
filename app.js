@@ -108,8 +108,13 @@ const INTESTAZIONE_BASE = {
   dataRevisione: '07/04/2025',
   norma1: 'UNI EN ISO 9001:2015',
   norma2: 'UNI EN ISO 14001:2015',
-  norma3: 'UNI ISO 45001:2018'
+  norma3: 'UNI ISO 45001:2018',
+  // titoli delle colonne degli orari: seguono le stesse regole dell'intestazione (un rapportino inviato conserva i suoi)
+  colPartenza: 'ORARIO PARTENZA DA DEPOSITO',
+  colCantiere: 'ORARIO DI LAVORO IN CANTIERE',
+  colRientro: 'ORARIO RIENTRO IN DEPOSITO'
 };
+const titoloColonna = (t, k) => t[k] || INTESTAZIONE_BASE[k];
 const LOGO_BASE = 'icons/logo-vicla.png';
 let intestazione = { ...INTESTAZIONE_BASE, logo: '' };
 // Intestazione di un rapportino: quella salvata al momento dell'invio (anche nella grafica vecchia), altrimenti l'attuale
@@ -170,6 +175,10 @@ function testataVecchia(pagina, t) {
 // Le intestazioni del modulo in compilazione e della pagina 2 seguono sempre l'intestazione attuale
 function aggiornaTestate() {
   document.querySelectorAll('.testata-pos').forEach(el => { el.innerHTML = testataModulo(Number(el.dataset.pagina)); });
+  // titoli delle colonne nel modulo in compilazione
+  $('titoloPartenza').textContent = titoloColonna(intestazione, 'colPartenza');
+  $('titoloCantiere').textContent = titoloColonna(intestazione, 'colCantiere');
+  $('titoloRientro').textContent = titoloColonna(intestazione, 'colRientro');
 }
 aggiornaTestate();
 $('versioneApp').textContent = `Versione ${self.APP_VERSION} del ${self.APP_VERSION_DATE}`;
@@ -1151,9 +1160,9 @@ function tabellaOperaiFronte(r) {
     <div class="tab-operai sola-lettura">
       <div class="operaio testa">
         <div class="o-nome">COGNOME E NOME</div><div class="o-p">P</div>
-        <div class="o-ora o-partenza">ORARIO PARTENZA DA DEPOSITO</div>
-        <div class="o-ora o-cantiere">ORARIO DI LAVORO IN CANTIERE</div>
-        <div class="o-ora o-rientro">ORARIO RIENTRO IN DEPOSITO</div>
+        <div class="o-ora o-partenza">${esc(titoloColonna(intestazioneDi(r), 'colPartenza'))}</div>
+        <div class="o-ora o-cantiere">${esc(titoloColonna(intestazioneDi(r), 'colCantiere'))}</div>
+        <div class="o-ora o-rientro">${esc(titoloColonna(intestazioneDi(r), 'colRientro'))}</div>
       </div>
       ${righe}
     </div>
@@ -2010,7 +2019,8 @@ const ETICHETTE_INTESTAZIONE = {
   ragioneSociale: 'Ragione sociale', sedeLegale: 'Sede legale', sedeAmministrativa: 'Sede amministrativa',
   datiFiscali: 'P.IVA / C.C.I.A.A. / R.E.A.', telefono: 'Telefono e fax', contatti: 'E-mail, web e PEC',
   titolo: 'Titolo', sottotitolo: 'Sottotitolo', identificazione: 'Identificazione (es. Mod. 22.03)', edizione: 'Edizione',
-  revisione: 'Revisione', dataRevisione: 'Data', norma1: 'Norma 1', norma2: 'Norma 2', norma3: 'Norma 3'
+  revisione: 'Revisione', dataRevisione: 'Data', norma1: 'Norma 1', norma2: 'Norma 2', norma3: 'Norma 3',
+  colPartenza: 'Titolo colonna partenza', colCantiere: 'Titolo colonna cantiere', colRientro: 'Titolo colonna rientro'
 };
 let logoInModifica = null;      // logo scelto ma non ancora salvato ('' = logo originale)
 let intestazioneToccata = false; // il responsabile sta scrivendo: non sovrascrivere i suoi campi
