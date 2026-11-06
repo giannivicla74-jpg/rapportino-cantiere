@@ -258,6 +258,7 @@ if (!configurato) {
 const stato = {
   utente: null,          // { uid, nome, ruolo, codice }
   elenchi: { operai: [], commesse: [] },
+  responsabili: { voci: [], predefinito: '' }, // responsabili di commessa (dal database)
   presenti: new Map(),   // nome -> { partenza, dalle, alle, rientro }
   automezzi: [],         // elenco dei mezzi (dal database)
   mezziScelti: new Set(), // mezzi spuntati nel rapportino in compilazione
@@ -462,6 +463,14 @@ function avviaCompilazione() {
     disegnaGestioneMezzi();
   }, () => {});
   stato.annulla.push(offM);
+  // responsabili di commessa: li gestisce lo sviluppatore
+  const offR = onSnapshot(doc(db, 'elenchi', 'responsabili'), snap => {
+    const d = snap.exists() ? snap.data() : {};
+    stato.responsabili = { voci: d.voci || [], predefinito: d.predefinito || '' };
+    riempiResponsabili();
+    disegnaGestioneResponsabili();
+  }, () => {});
+  stato.annulla.push(offR);
   // intestazione del modulo (testi e logo): la decide l'ufficio
   const offI = onSnapshot(doc(db, 'elenchi', 'intestazione'), snap => {
     // un'intestazione salvata con la grafica vecchia (senza ragione sociale) non vale più: si usa la nuova, tenendo il logo
@@ -623,6 +632,16 @@ $('btnApplicaTutti').onclick = () => {
 };
 
 // Bozza sul telefono finché il rapportino non viene inviato (se si chiude l'app non si perde il lavoro)
+// Responsabile di commessa: resta la scelta della bozza, altrimenti il predefinito.
+// Un nome tolto dall'elenco, o scritto a mano con una versione vecchia, resta scelto finché non lo si cambia.
+function riempiResponsabili() {
+  const sel = $('rResponsabile');
+  const { voci, predefinito } = stato.responsabili;
+  const attuale = ls.get(chiaveBozza())?.responsabile || predefinito;
+  const tutte = attuale && !voci.includes(attuale) ? [attuale, ...voci] : voci;
+  sel.innerHTML = '<option value="">— Scegli il responsabile —</option>' + tutte.map(n => `<option ${n === attuale ? 'selected' : ''}>${esc(n)}</option>`).join('');
+}
+
 const PAUSA_DALLE = '12:00', PAUSA_ALLE = '13:00';
 function aggiornaTastoPausa() {
   $('btnPausa').textContent = $('rMensaDalle').value || $('rMensaAlle').value ? 'Nessuna pausa' : `Rimetti ${PAUSA_DALLE}–${PAUSA_ALLE}`;
@@ -649,6 +668,7 @@ function caricaBozza() {
   // Pausa mensa già scritta per i rapportini nuovi; in una bozza si rispetta quello che c'è, anche se vuoto
   if (!('mensaDalle' in b)) { $('rMensaDalle').value = PAUSA_DALLE; $('rMensaAlle').value = PAUSA_ALLE; }
   aggiornaTastoPausa();
+  riempiResponsabili();
   stato.presenti = new Map(Object.entries(b.presenti || {}));
   $('rCaposquadraScelta').value = '';
   riempiCapisquadra();
@@ -2098,7 +2118,7 @@ $('listaMezzi').addEventListener('click', async e => {
     campo.select();
     campo.onkeydown = ev => { if (ev.key === 'Enter') { ev.preventDefault(); $('finestraBottoni').lastChild.click(); } };
     if (!await scelta) return;
-    const nuovo = campo.value.trim().replace(/s+/g, ' ');
+    const nuovo = campo.value.trim().replace(/\s+/g, ' ');
     if (!nuovo || nuovo === vecchio) return;
     // la posizione si ricalcola adesso: nel frattempo l'elenco può essere cambiato
     const pos = stato.automezzi.indexOf(vecchio);
@@ -2115,6 +2135,55 @@ $('listaMezzi').addEventListener('click', async e => {
   const m = stato.automezzi[Number(i)];
   if (!await conferma('Togliere l\'automezzo?', `<p><b>${esc(m)}</b> non comparirà più sui telefoni. I rapportini già inviati non cambiano.</p>`, 'Togli')) return;
   try { await salvaMezzi(stato.automezzi.filter(x => x !== m)); }
+  catch (err) { avviso(messaggioErrore(err), 'errore'); }
+});
+
+// ---------------------------------------------------------------- responsabili di commessa
+// Elenco in elenchi/responsabili (i nomi stanno solo nel database): uno può essere spuntato come predefinito.
+function disegnaGestioneResponsabili() {
+  if (stato.utente?.ruolo !== 'responsabile') return;
+  const { voci, predefinito } = stato.responsabili;
+  $('listaResponsabili').innerHTML = voci.length
+    ? voci.map((n, i) => `<div class="voce">
+        <span class="voce-num">${i + 1}.</span>
+        <div class="voce-princ"><div class="voce-titolo">${esc(n)}</div></div>
+        <label class="spunta-predefinito"><input type="checkbox" data-predefinito="${i}" ${n === predefinito ? 'checked' : ''}> Predefinito</label>
+        <button class="btn piccolo pericolo" data-togli-responsabile="${i}">Togli</button></div>`).join('')
+    : '<div class="nessuno">Nessun responsabile: aggiungili qui sotto</div>';
+  $('contaResponsabili').textContent = voci.length ? `(${voci.length})` : '';
+}
+const salvaResponsabili = (voci, predefinito) => setDoc(doc(db, 'elenchi', 'responsabili'), { voci, predefinito, aggiornatoIl: serverTimestamp(), aggiornatoDa: stato.utente.nome });
+
+$('formResponsabile').addEventListener('submit', async e => {
+  e.preventDefault();
+  const nuovo = $('nuovoResponsabile').value.trim().replace(/\s+/g, ' ');
+  if (!nuovo) return;
+  const { voci, predefinito } = stato.responsabili;
+  if (voci.some(n => n.toUpperCase() === nuovo.toUpperCase())) { avviso('Questo nome è già in elenco', 'errore'); return; }
+  $('nuovoResponsabile').value = '';
+  try {
+    await salvaResponsabili([...voci, nuovo], predefinito);
+    avviso(`Aggiunto: ${nuovo}`, 'ok');
+  } catch (err) {
+    if (!$('nuovoResponsabile').value) $('nuovoResponsabile').value = nuovo;
+    avviso(messaggioErrore(err), 'errore');
+  }
+});
+$('listaResponsabili').addEventListener('change', async e => {
+  const i = e.target.dataset.predefinito;
+  if (i === undefined) return;
+  const { voci } = stato.responsabili;
+  // la spunta è una sola: mettendola su un nome si toglie dagli altri; togliendola non c'è più un predefinito
+  try { await salvaResponsabili(voci, e.target.checked ? voci[Number(i)] : ''); }
+  catch (err) { avviso(messaggioErrore(err), 'errore'); disegnaGestioneResponsabili(); }
+});
+$('listaResponsabili').addEventListener('click', async e => {
+  const i = e.target.dataset.togliResponsabile;
+  if (i === undefined) return;
+  const { voci, predefinito } = stato.responsabili;
+  const n = voci[Number(i)];
+  if (!await conferma('Togliere il responsabile?', `<p><b>${esc(n)}</b> non comparirà più nell'elenco. I rapportini già inviati non cambiano.</p>`, 'Togli')) return;
+  try { await salvaResponsabili(voci.filter(x => x !== n), predefinito === n ? '' : predefinito); }
   catch (err) { avviso(messaggioErrore(err), 'errore'); }
 });
 

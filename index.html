@@ -155,7 +155,7 @@
             </div>
             <div class="r-riga">
               <label class="r-cella largo"><span class="r-et">Caposquadra:</span><input id="rCaposquadra" readonly tabindex="-1"><select id="rCaposquadraScelta" hidden aria-label="Caposquadra"></select></label>
-              <label class="r-cella"><span class="r-et">Responsabile di Commessa:</span><input id="rResponsabile" autocomplete="off"></label>
+              <label class="r-cella"><span class="r-et">Responsabile di Commessa:</span><select id="rResponsabile"><option value="">— Scegli il responsabile —</option></select></label>
             </div>
           </div>
 
@@ -306,6 +306,16 @@
               <button type="button" class="btn" id="btnIntestazioneBase">Rimetti i testi originali</button>
               <button type="submit" class="btn primario" id="btnSalvaIntestazione">Salva intestazione</button>
             </div>
+          </form>
+        </div>
+
+        <h2>Responsabili di commessa <span id="contaResponsabili"></span></h2>
+        <div class="scheda">
+          <p>Nel rapportino il responsabile si sceglie da questo elenco. Con la spunta <b>Predefinito</b> quel nome compare già scelto, e si può sempre cambiare; senza spunta va scelto ogni volta.</p>
+          <div id="listaResponsabili" class="elenco"></div>
+          <form id="formResponsabile" class="riga-aggiungi">
+            <input id="nuovoResponsabile" placeholder="Nome e cognome" maxlength="80" required autocomplete="off">
+            <button class="btn primario" type="submit">Aggiungi</button>
           </form>
         </div>
 
