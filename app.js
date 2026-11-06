@@ -1102,6 +1102,7 @@ const orarioComune = (r, k) => { const s = new Set((r.operai || []).map(o => o[k
 // Il massimo si sceglie nell'area sviluppatore (elenchi/correnti, campo viaggi). Se non è stato scelto vale 1 ora,
 // tranne il deposito COMM.0, dove il viaggio non esiste.
 const VIAGGIO_MAX = 1;
+const VIAGGIO_VERO = 'vero'; // nessun limite: si propone tutto il viaggio calcolato dagli orari
 const viaggioMassimo = c => {
   const scelto = stato.elenchi.viaggi?.[c];
   if (scelto !== undefined) return scelto;
@@ -1118,11 +1119,15 @@ function proponiOreTurno(b, t, r) {
       const v = differenzaOre(p, d) + differenzaOre(a, ri);
       if (v > 0 && v < totale) viaggio = v;
     }
-    // prima le 8 ordinarie; quello che avanza è viaggio (al massimo il viaggio vero), il resto straordinario
+    const massimo = viaggioMassimo(riga.commessa || r.commessa);
+    // "Viaggio vero" (cantieri lontani): il viaggio resta intero e le ordinarie sono il lavoro in cantiere,
+    // es. 05:00-19:00 con lavori 08-16 e 1 di pausa = Ord. D 7 + Viaggio 6.
+    // Altrimenti prima le 8 ordinarie; quello che avanza è viaggio (fino al massimo), il resto straordinario,
     // es. 07:00-17:00 meno 1 di pausa = 9, viaggio vero 2 → Ord. D 8 + Viaggio 1
-    const ordinarie = Math.min(8, totale);
+    const viaggioIntero = massimo === VIAGGIO_VERO;
+    const ordinarie = Math.min(8, viaggioIntero ? totale - viaggio : totale);
     const resto = totale - ordinarie;
-    const vg = Math.min(viaggio, resto, viaggioMassimo(riga.commessa || r.commessa));
+    const vg = viaggioIntero ? viaggio : Math.min(viaggio, resto, massimo);
     ore.or = fmtOre(ordinarie);
     if (vg > 0) ore.v = fmtOre(vg);
     if (resto - vg > 0) ore.sd = fmtOre(resto - vg);
@@ -2042,7 +2047,7 @@ function mostraInfoElenchi() {
     return `<label class="chip ${si ? 'si' : ''}"><input type="checkbox" data-voce="${esc(c)}" ${si ? 'checked' : ''}>${esc(c)}</label>`;
   }).join('');
   // Viaggio massimo per commessa: assenze, ferie e altre voci nascoste non servono
-  const scelte = [[1, '1 ora'], [0.5, 'Mezz\'ora'], [0, 'Nessuno']];
+  const scelte = [[1, '1 ora'], [0.5, 'Mezz\'ora'], [0, 'Nessuno'], [VIAGGIO_VERO, 'Viaggio vero']];
   $('listaViaggi').innerHTML = e.commesse.filter(c => !e.nascoste.includes(c)).map(c => {
     const max = viaggioMassimo(c);
     return `<label class="riga-viaggio"><span>${esc(c)}</span><select data-viaggio-voce="${esc(c)}">${scelte.map(([v, t]) => `<option value="${v}" ${v === max ? 'selected' : ''}>${t}</option>`).join('')}</select></label>`;
@@ -2052,7 +2057,7 @@ function mostraInfoElenchi() {
 $('listaViaggi').addEventListener('change', async e => {
   const voce = e.target.dataset.viaggioVoce;
   if (voce === undefined) return;
-  try { await updateDoc(doc(db, 'elenchi', 'correnti'), { viaggi: { ...stato.elenchi.viaggi, [voce]: Number(e.target.value) } }); }
+  try { await updateDoc(doc(db, 'elenchi', 'correnti'), { viaggi: { ...stato.elenchi.viaggi, [voce]: e.target.value === VIAGGIO_VERO ? VIAGGIO_VERO : Number(e.target.value) } }); }
   catch (err) { avviso(messaggioErrore(err), 'errore'); mostraInfoElenchi(); }
 });
 
