@@ -15,7 +15,7 @@ import {
 } from 'https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js';
 import {
   initializeFirestore, persistentLocalCache, persistentMultipleTabManager, doc, collection, getDoc,
-  getDocFromCache, getDocs, setDoc, updateDoc, deleteDoc, onSnapshot, query, where, serverTimestamp, writeBatch,
+  getDocFromCache, getDocFromServer, getDocs, setDoc, updateDoc, deleteDoc, onSnapshot, query, where, serverTimestamp, writeBatch,
   waitForPendingWrites, connectFirestoreEmulator
 } from 'https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js';
 
@@ -472,6 +472,7 @@ function avviaCompilazione() {
   }, () => {});
   stato.annulla.push(offI);
   controllaCoda();
+  recuperaCopie(stato.utente.uid).catch(() => {});
 }
 
 // Automezzi: elenco a comparsa; ogni mezzo scelto compare sotto con la ✕ per toglierlo (se ne possono scegliere più)
@@ -721,11 +722,14 @@ function inviaRapportino(dati) {
   const bozza = ls.get(chiaveBozza());
   const ref = doc(collection(db, 'rapportini'));
   const chiave = chiaveCoda();
+  const uid = stato.utente.uid;
   ls.set(chiave, (ls.get(chiave) || 0) + 1);
   let consegnato = false;
+  salvaCopia(uid, ref.id, dati);
 
   const scrittura = setDoc(ref, dati).then(() => {
     consegnato = true;
+    togliCopia(uid, ref.id);
     ls.set(chiave, Math.max(0, (ls.get(chiave) || 1) - 1));
     controllaCoda();
   });
@@ -751,10 +755,54 @@ function inviaRapportino(dati) {
     ls.set(chiave, Math.max(0, (ls.get(chiave) || 1) - 1));
     controllaCoda();
     // invio rifiutato: il rapportino torna nel modulo per non perderlo
-    if (bozza) { ls.set(chiaveBozza(), bozza); caricaBozza(); }
+    if (bozza) { ls.set(chiaveBozza(), bozza); caricaBozza(); togliCopia(uid, ref.id); }
     mostraVista('compila');
     await finestra('Invio non riuscito', `<p>${esc(messaggioErrore(err))}</p><p>Il rapportino è stato rimesso nel modulo: puoi riprovare.</p>`);
   });
+}
+
+// Copia di sicurezza: se l'app viene chiusa, Firebase non può più dire che un invio è stato rifiutato
+// (per esempio perché l'utente nel frattempo è stato disattivato). La copia resta sul telefono finché
+// l'arrivo non è sicuro e all'apertura successiva il rapportino riparte, sempre con lo stesso identificativo.
+const chiaveCopie = uid => `rapp_copie_${uid}`;
+function salvaCopia(uid, id, dati) {
+  const { inviatoIl, ...copia } = dati; // l'ora di invio la mette il server
+  ls.set(chiaveCopie(uid), { ...(ls.get(chiaveCopie(uid)) || {}), [id]: copia });
+}
+function togliCopia(uid, id) {
+  const copie = ls.get(chiaveCopie(uid)) || {};
+  delete copie[id];
+  if (Object.keys(copie).length) ls.set(chiaveCopie(uid), copie);
+  else ls.del(chiaveCopie(uid));
+}
+async function recuperaCopie(uid) {
+  const ids = Object.keys(ls.get(chiaveCopie(uid)) || {});
+  if (!ids.length) return;
+  // prima parte la coda normale di Firebase: la maggior parte delle copie si toglie così
+  try { await waitForPendingWrites(db); } catch (_) { return; }
+  for (const id of ids) {
+    if (stato.utente?.uid !== uid) return;
+    const copia = (ls.get(chiaveCopie(uid)) || {})[id];
+    if (!copia) continue;
+    const ref = doc(db, 'rapportini', id);
+    // Il responsabile può leggere: se il rapportino c'è già non va mai riscritto, perderebbe le ore.
+    // Il caposquadra non può leggere, ma il database gli rifiuta la scrittura su un rapportino già esistente.
+    try {
+      if ((await getDocFromServer(ref)).exists()) { togliCopia(uid, id); continue; }
+    } catch (err) {
+      if (err?.code !== 'permission-denied') return; // niente rete: si riprova alla prossima apertura
+    }
+    try {
+      await setDoc(ref, { ...copia, inviatoIl: serverTimestamp() });
+      togliCopia(uid, id);
+      avviso(`Rapportino del ${dataIT(copia.data)} recuperato e inviato`, 'ok');
+    } catch (err) {
+      if (err?.code !== 'permission-denied') return;
+      // rifiutato: se l'utente è attivo vuol dire che il rapportino è già arrivato; altrimenti la copia resta
+      const profilo = await getDocFromServer(doc(db, 'utenti', uid)).catch(() => null);
+      if (profilo?.exists() && profilo.data().attivo === true) togliCopia(uid, id);
+    }
+  }
 }
 
 function controllaCoda() {
