@@ -639,7 +639,7 @@ function riempiResponsabili() {
   const { voci, predefinito } = stato.responsabili;
   const attuale = ls.get(chiaveBozza())?.responsabile || predefinito;
   const tutte = attuale && !voci.includes(attuale) ? [attuale, ...voci] : voci;
-  sel.innerHTML = '<option value="">— Scegli il responsabile —</option>' + tutte.map(n => `<option ${n === attuale ? 'selected' : ''}>${esc(n)}</option>`).join('');
+  sel.innerHTML = '<option value="">— Scegli —</option>' + tutte.map(n => `<option ${n === attuale ? 'selected' : ''}>${esc(n)}</option>`).join('');
 }
 
 const PAUSA_DALLE = '12:00', PAUSA_ALLE = '13:00';
