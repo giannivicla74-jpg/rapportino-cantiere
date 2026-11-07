@@ -1463,6 +1463,7 @@ function disegnaBlocchi() {
       <div class="blocco-testa">
         <span>TURNO DI LAVORO ${blocchi.length > 1 ? i + 1 : ''}</span>
         <button class="btn piccolo" data-azione="proponi" title="Ricalcola Ord. D, Straord. D e Viaggio da entrata, uscita e pausa">Proponi ore</button>
+        <button class="btn piccolo" data-azione="soloviaggio" title="Giornata di solo viaggio: tutte le ore da entrata a uscita, meno la pausa, vanno in Viaggio">Solo viaggio</button>
         ${blocchi.length > 1 ? `<button class="btn piccolo pericolo" data-azione="togli">Togli blocco</button>` : ''}
       </div>
       <div class="blocco-corpo">
@@ -1575,6 +1576,13 @@ $('blocchi').addEventListener('click', e => {
   if (az === 'togli') bl.splice(i, 1);
   if (az === 'tutti') bl[i].operai = tuttiGliOperai();
   if (az === 'nessuno') bl[i].operai = [];
+  if (az === 'soloviaggio') {
+    // giornata di solo viaggio (es. trasferta a Milano): uscita - entrata - pausa, tutto in Viaggio; la pausa si toglie solo se c'è
+    const ore = bl[i].righe.map(r => { const sub = differenzaOre(r.entrata, r.uscita); return sub ? Math.max(0, sub - num(r.pausa)) : 0; });
+    if (!ore.some(v => v > 0)) { avviso('Per il solo viaggio servono entrata e uscita nel riquadro', 'errore'); return; }
+    ore.forEach((v, t) => { bl[i].ore[`t${t + 1}`] = { ...oreVuote(), ...(v > 0 ? { v: fmtOre(v) } : {}) }; });
+    avviso('Ore di solo viaggio: controllale prima di convalidare', 'ok');
+  }
   if (az === 'proponi') {
     // ricalcola le ore dei due turni da entrata, uscita e pausa (sovrascrive quelle scritte)
     [0, 1].forEach(t => proponiOreTurno(bl[i], t, stato.aperto.dati));
