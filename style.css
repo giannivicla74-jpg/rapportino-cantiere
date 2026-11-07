@@ -654,4 +654,10 @@ button.o-p { cursor: pointer; -webkit-tap-highlight-color: transparent; }
 .promemoria p { margin: 6px 0; }
 .promemoria ul, .promemoria ol { margin: 6px 0; padding-left: 22px; }
 .promemoria li { margin: 3px 0; }
+/* messaggi per i capisquadra */
+#messaggi summary { cursor: pointer; font-weight: 700; padding: 4px 0; }
+#messaggi .elenco { margin: 10px 0 14px; }
+.messaggio summary { cursor: pointer; margin-top: 4px; }
+.testo-messaggio { white-space: pre-wrap; overflow-wrap: anywhere; font-size: .9rem; margin-top: 8px; padding: 10px; border-left: 3px solid var(--bordo); }
+.azioni-messaggio { display: flex; flex-wrap: wrap; gap: 8px; }
 .campo-promemoria { width: 100%; font: inherit; font-size: .9rem; padding: 10px; border: 1px solid var(--bordo); border-radius: 8px; background: var(--carta); color: var(--testo); }

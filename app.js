@@ -2129,6 +2129,84 @@ $('btnModificaPromemoria').onclick = async () => {
   } catch (err) { avviso(messaggioErrore(err), 'errore'); }
 };
 
+// ---------------------------------------------------------------- messaggi per i capisquadra
+// Testi pronti da mandare con WhatsApp (un solo messaggio, il destinatario lo sceglie lo sviluppatore).
+// Stanno in elenchi/messaggi (scrive solo lo sviluppatore); finché non si salva vale il messaggio di partenza.
+const MESSAGGI_BASE = [{
+  titolo: 'Rapportino nei giorni di solo viaggio',
+  testo: [
+    '*Rapportino nei giorni di solo viaggio*',
+    '',
+    'Quando la squadra fa solo il viaggio e non lavora in cantiere (per esempio il trasferimento a Milano), compilate il rapportino così:',
+    '',
+    '1. Scegliete la *commessa* e segnate con la *X* gli operai presenti.',
+    '2. In *Arrivo in deposito* scrivete l\'ora in cui vi trovate in deposito per partire.',
+    '3. In *Rientro in deposito* scrivete l\'ora di arrivo a destinazione, oppure l\'ora di rientro se tornate in giornata.',
+    '4. Lasciate *vuoti* "Inizio lavori in cantiere" e "Fine lavori in cantiere".',
+    '5. Premete *Applica a tutti i presenti*. *Non* usate il pulsante "Smart time entry".',
+    '6. *Pausa:* se vi siete fermati a mangiare, scrivete l\'orario della sosta. Se non vi siete fermati, premete *Nessuna pausa*.',
+    '7. In *Lavorazioni eseguite* scrivete: *Solo viaggio – trasferimento a …* (per esempio Milano).',
+    '8. Premete *Invia*. Comparirà l\'avviso *"Mancano gli orari"*: è normale, premete *Continua lo stesso*.',
+    '',
+    'Le ore di viaggio le calcola l\'ufficio.',
+    'Per dubbi contattate l\'ufficio.'
+  ].join('\n')
+}];
+let messaggi = [];
+function disegnaMessaggi() {
+  $('listaMessaggi').innerHTML = messaggi.length ? messaggi.map((m, i) => `<div class="voce messaggio">
+      <div class="voce-princ"><div class="voce-titolo">${esc(m.titolo)}</div>
+        <details><summary class="voce-sotto">Mostra il testo</summary><div class="testo-messaggio">${esc(m.testo)}</div></details></div>
+      <div class="azioni-messaggio">
+        <button class="btn piccolo primario" type="button" data-msg-wa="${i}">WhatsApp</button>
+        <button class="btn piccolo" type="button" data-msg-modifica="${i}">Modifica</button>
+        <button class="btn piccolo pericolo" type="button" data-msg-elimina="${i}">Elimina</button>
+      </div></div>`).join('')
+    : '<div class="nessuno">Nessun messaggio: premi "+ Nuovo messaggio".</div>';
+}
+async function caricaMessaggi() {
+  try {
+    const snap = await getDoc(doc(db, 'elenchi', 'messaggi'));
+    messaggi = snap.exists() ? (snap.data().voci || []) : MESSAGGI_BASE.map(m => ({ ...m }));
+    disegnaMessaggi();
+  } catch (err) { $('listaMessaggi').innerHTML = `<div class="errore">${esc(messaggioErrore(err))}</div>`; }
+}
+async function salvaMessaggi(nuovi, testoOk) {
+  try {
+    await setDoc(doc(db, 'elenchi', 'messaggi'), { voci: nuovi, aggiornatoIl: serverTimestamp(), aggiornatoDa: stato.utente.nome });
+    messaggi = nuovi;
+    disegnaMessaggi();
+    avviso(testoOk, 'ok');
+  } catch (err) { avviso(messaggioErrore(err), 'errore'); }
+}
+async function modificaMessaggio(i) {
+  const m = i === null ? { titolo: '', testo: '' } : messaggi[i];
+  const scelta = finestra(i === null ? 'Nuovo messaggio' : 'Modifica il messaggio', `
+    <label class="campo"><span>Titolo (lo vedi solo tu)</span><input id="campoTitoloMsg" maxlength="80" autocomplete="off" value="${esc(m.titolo)}"></label>
+    <label class="campo"><span>Testo del messaggio</span><textarea id="campoTestoMsg" class="campo-promemoria" rows="16">${esc(m.testo)}</textarea></label>
+    <p class="aiuto">Su WhatsApp le parole tra asterischi si vedono in grassetto: *così*. Non scrivere PIN o password.</p>`,
+    [{ testo: 'Annulla', valore: false }, { testo: 'Salva', valore: true, primario: true }]);
+  const titolo = $('campoTitoloMsg'), testo = $('campoTestoMsg');
+  if (!await scelta) return;
+  const voce = { titolo: titolo.value.trim() || 'Messaggio senza titolo', testo: testo.value.trim() };
+  if (!voce.testo) { avviso('Il messaggio è vuoto: non è stato salvato', 'errore'); return; }
+  const nuovi = [...messaggi];
+  if (i === null) nuovi.push(voce); else nuovi[i] = voce;
+  salvaMessaggi(nuovi, 'Messaggio salvato');
+}
+$('messaggi').addEventListener('toggle', () => { if ($('messaggi').open) caricaMessaggi(); });
+$('btnNuovoMessaggio').onclick = () => modificaMessaggio(null);
+$('listaMessaggi').addEventListener('click', async e => {
+  const d = e.target.dataset;
+  if (d.msgWa !== undefined) window.open('https://wa.me/?text=' + encodeURIComponent(messaggi[Number(d.msgWa)].testo), '_blank');
+  else if (d.msgModifica !== undefined) modificaMessaggio(Number(d.msgModifica));
+  else if (d.msgElimina !== undefined) {
+    const i = Number(d.msgElimina);
+    if (!await conferma('Eliminare il messaggio?', `<p>Il messaggio <b>${esc(messaggi[i].titolo)}</b> verrà eliminato.</p>`, 'Elimina')) return;
+    salvaMessaggi(messaggi.filter((_, x) => x !== i), 'Messaggio eliminato');
+  }
+});
+
 // ---------------------------------------------------------------- elenchi dal file Excel
 function mostraInfoElenchi() {
   const e = stato.elenchi;
