@@ -1170,7 +1170,10 @@ function proponiOreTurno(b, t, r) {
   const ore = oreVuote();
   if (totale > 0) {
     let viaggio = 0;
-    const [p, d, a, ri] = ['partenza', 'dalle', 'alle', 'rientro'].map(k => orarioComune(r, k));
+    // Gli orari sono quelli degli operai di questo blocco; un blocco senza operai del caposquadra guarda tutto il rapportino
+    const delBlocco = (r.operai || []).filter(o => b.operai.includes(o.nome));
+    const gruppo = delBlocco.length ? { operai: delBlocco } : r;
+    const [p, d, a, ri] = ['partenza', 'dalle', 'alle', 'rientro'].map(k => orarioComune(gruppo, k));
     if (t === 0 && p && d && a && ri && riga.entrata === p && riga.uscita === ri) {
       const v = differenzaOre(p, d) + differenzaOre(a, ri);
       if (v > 0 && v < totale) viaggio = v;
@@ -1208,11 +1211,36 @@ function bloccoIniziale(r) {
   return b;
 }
 
+// Operai con orari diversi: un blocco per ogni orario, così ognuno ha le ore giuste.
+// Un orario vuoto non è un orario diverso: se nessuna colonna ha due valori in contrasto, il blocco resta uno solo.
+const CAMPI_ORARI = ['partenza', 'dalle', 'alle', 'rientro'];
+const chiaveOrari = o => CAMPI_ORARI.map(k => o?.[k] || '').join('|');
+function blocchiIniziali(r) {
+  const inContrasto = CAMPI_ORARI.some(k => new Set((r.operai || []).map(o => o[k]).filter(Boolean)).size > 1);
+  if (!inContrasto) return [bloccoIniziale(r)];
+  const gruppi = new Map();
+  (r.operai || []).forEach(o => {
+    const chiave = chiaveOrari(o);
+    if (!gruppi.has(chiave)) gruppi.set(chiave, []);
+    gruppi.get(chiave).push(o);
+  });
+  return [...gruppi.values()].map(operai => bloccoIniziale({ ...r, operai }));
+}
+// Il blocco in cui rimettere un operaio tolto: quello di chi ha il suo stesso orario
+function bloccoDellOrario(blocchi, r, nome) {
+  const orariDi = n => (r.operai || []).find(o => o.nome === n);
+  const o = orariDi(nome);
+  if (!o) return blocchi[0];
+  return blocchi.find(b => b.operai.some(n => orariDi(n) && chiaveOrari(orariDi(n)) === chiaveOrari(o)))
+    || blocchi.find(b => b.righe[0].entrata === (o.partenza || o.dalle) && b.righe[0].uscita === (o.rientro || o.alle))
+    || blocchi[0];
+}
+
 function apriRapportino(r) {
   if (!r) return;
   stato.aperto = {
     id: r.id, dati: r,
-    blocchi: (r.blocchi?.length ? structuredClone(r.blocchi) : [bloccoIniziale(r)]),
+    blocchi: (r.blocchi?.length ? structuredClone(r.blocchi) : blocchiIniziali(r)),
     aggiunti: [...(r.operaiAggiunti || [])], // operai non segnati dal caposquadra, aggiunti dall'ufficio
     tolti: [...(r.operaiTolti || [])]        // operai segnati per sbaglio dal caposquadra, tolti dall'ufficio
   };
@@ -1394,7 +1422,8 @@ $('dettaglioFronte').addEventListener('click', e => {
     blocchi.forEach(b => { b.operai = b.operai.filter(n => n !== d.togliP1); });
   } else if (d.rimetti !== undefined) {
     stato.aperto.tolti = tolti.filter(n => n !== d.rimetti);
-    if (blocchi[0] && !blocchi[0].operai.includes(d.rimetti)) blocchi[0].operai.push(d.rimetti);
+    const casa = bloccoDellOrario(blocchi, stato.aperto.dati, d.rimetti);
+    if (casa && !casa.operai.includes(d.rimetti)) casa.operai.push(d.rimetti);
   } else if (d.togliOperaio !== undefined) {
     stato.aperto.aggiunti = aggiunti.filter(n => n !== d.togliOperaio);
     blocchi.forEach(b => { b.operai = b.operai.filter(n => n !== d.togliOperaio); });
@@ -1589,7 +1618,7 @@ function calcolaRecord() {
         records.push({ workerName: nome, turno: x + 1, cantiere: commessa, commessa, ...ore, malattia: 0 });
       });
     });
-    if (qualcosa && b.operai.length === 0) errori.push(`${nomeB}: spunta gli operai a cui vale`);
+    if (qualcosa && b.operai.length === 0) errori.push(`${nomeB}: spunta gli operai a cui vale, oppure togli il blocco`);
     if (!qualcosa && b.operai.length > 0) errori.push(`${nomeB}: scrivi le ore nel riquadro 1°/2° turno`);
   });
   const conOre = new Set(records.map(r => r.workerName));
@@ -2616,6 +2645,7 @@ if (EMULATORE) {
     modificaUtente: async uid => updateDoc(doc(db, 'utenti', uid), { attivo: false }).then(() => 'scritto', e => e.code),
     leggiPin: async () => getDocs(collection(db, 'accessi')).then(s => 'letti ' + s.size, e => e.code),
     testata: (pagina, t) => testataModulo(pagina, t),
-    oreProposte: r => bloccoIniziale(r).ore.t1
+    oreProposte: r => bloccoIniziale(r).ore.t1,
+    blocchiProposti: r => blocchiIniziali(r)
   };
 }
