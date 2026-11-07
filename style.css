@@ -330,7 +330,10 @@ table.tab { border-collapse: collapse; width: 100%; font-size: .92rem; }
   background-attachment: local;
 }
 .riquadro :focus { outline: 2px solid var(--inchiostro); outline-offset: -2px; }
-.r-valore { flex: 1; color: var(--inchiostro); font-weight: 600; border-bottom: 1.5px dotted #777; min-height: 1.6em; padding: 2px; overflow-wrap: anywhere; }
+.r-valore { flex: 1; color: var(--inchiostro); font-weight: 600; border-bottom: 1.5px dotted #777; min-height: 1.6em; padding: 2px; overflow-wrap: break-word; }
+/* pagina 1 in sola lettura: se l'etichetta lascia poco spazio, il valore va sotto intero invece di spezzarsi lettera per lettera */
+.r-cella:has(> .r-valore:not(.testo)) { flex-wrap: wrap; }
+.r-cella > .r-valore:not(.testo) { flex: 1 0 auto; max-width: 100%; }
 .r-valore.testo { border: 0; padding: 4px 8px; white-space: pre-wrap; min-height: 2.4em; font-weight: 500; }
 .dalle-alle { display: flex; align-items: center; gap: 6px; flex: 1; font-style: italic; }
 .dalle-alle input { max-width: 120px; min-width: 0; flex: 1 1 0; }
