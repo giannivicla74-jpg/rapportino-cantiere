@@ -324,6 +324,21 @@
             </div>
             <button class="btn primario" type="submit">Salva orario standard</button>
           </form>
+          <h3>Orario speciale per COMM.0</h3>
+          <p class="aiuto">Quando nel rapportino la commessa è COMM.0, il pulsante usa questi orari e questa pausa. Lasciando vuoti i 4 orari, anche con COMM.0 resta l'orario standard.</p>
+          <p class="errore" id="avvisoViaggioDeposito" hidden>COMM.0 è su "Nessuno" in Viaggio massimo per commessa: l'app non proporrà il viaggio. Per avere 8 ordinarie e 1 di viaggio mettila su "1 ora".</p>
+          <form id="formOrarioDeposito">
+            <label class="campo"><span>Nome del pulsante</span><input data-deposito="nome" maxlength="40" autocomplete="off"></label>
+            <div class="griglia-2">
+              <label class="campo"><span>Partenza deposito</span><input type="time" data-deposito="partenza"></label>
+              <label class="campo"><span>Dalle</span><input type="time" data-deposito="dalle"></label>
+              <label class="campo"><span>Alle</span><input type="time" data-deposito="alle"></label>
+              <label class="campo"><span>Rientro deposito</span><input type="time" data-deposito="rientro"></label>
+              <label class="campo"><span>Pausa dalle</span><input type="time" data-deposito="mensaDalle"></label>
+              <label class="campo"><span>Pausa alle</span><input type="time" data-deposito="mensaAlle"></label>
+            </div>
+            <button class="btn primario" type="submit">Salva orario COMM.0</button>
+          </form>
         </div>
 
         <h2>Responsabili di commessa <span id="contaResponsabili"></span></h2>

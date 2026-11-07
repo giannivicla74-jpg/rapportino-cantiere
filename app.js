@@ -269,6 +269,7 @@ const stato = {
   elenchi: { operai: [], commesse: [] },
   responsabili: { voci: [], predefinito: '' }, // responsabili di commessa (dal database)
   orarioStandard: {},    // orari del pulsante "Orario standard" (dal database)
+  orarioDeposito: {},    // orario speciale del pulsante con la commessa COMM.0 (dal database)
   presenti: new Map(),   // nome -> { partenza, dalle, alle, rientro }
   automezzi: [],         // elenco dei mezzi (dal database)
   mezziScelti: new Set(), // mezzi spuntati nel rapportino in compilazione
@@ -489,6 +490,12 @@ function avviaCompilazione() {
     disegnaGestioneOrarioStandard();
   }, () => {});
   stato.annulla.push(offO);
+  const offD = onSnapshot(doc(db, 'elenchi', 'orarioDeposito'), snap => {
+    stato.orarioDeposito = snap.exists() ? snap.data() : { ...ORARIO_DEPOSITO_BASE };
+    aggiornaPulsanteStandard();
+    disegnaGestioneOrarioDeposito();
+  }, () => {});
+  stato.annulla.push(offD);
   // intestazione del modulo (testi e logo): la decide l'ufficio
   const offI = onSnapshot(doc(db, 'elenchi', 'intestazione'), snap => {
     // un'intestazione salvata con la grafica vecchia (senza ragione sociale) non vale più: si usa la nuova, tenendo il logo
@@ -557,6 +564,8 @@ function riempiCommesse() {
   const voci = stato.elenchi.commesse.filter(c => !stato.elenchi.nascoste.includes(c));
   if (attuale && !voci.includes(attuale)) voci.unshift(attuale);
   sel.innerHTML = '<option value="">— Scegli la commessa —</option>' + voci.map(c => `<option ${c === attuale ? 'selected' : ''}>${esc(c)}</option>`).join('');
+  commessaDiPrima = sel.value;
+  aggiornaPulsanteStandard();
 }
 
 function disegnaOperai() {
@@ -674,15 +683,62 @@ $('btnApplicaTutti').onclick = applicaOrariATutti;
 // Orario standard: si imposta nell'area sviluppatore (elenchi/orarioStandard). Il pulsante riempie il riquadro
 // e applica subito gli orari ai presenti; le righe degli operai restano sempre modificabili.
 const ORARIO_STANDARD_BASE = { nome: 'Orario standard 8 & 1', partenza: '07:00', dalle: '07:30', alle: '16:30', rientro: '17:00' };
+// Solo per il deposito COMM.0 c'è un orario speciale (elenchi/orarioDeposito), che comprende anche la pausa.
+const ORARIO_DEPOSITO_BASE = { nome: 'Orario magazzino 8 & 1', partenza: '06:30', dalle: '07:00', alle: '17:00', rientro: '17:30', mensaDalle: '12:00', mensaAlle: '14:00' };
+const eDeposito = c => /^COMM\.0$/i.test(String(c || '').trim());
+const haOrari = s => CHIAVI_ORARI.some(k => s[k]);
+// Con COMM.0 vale l'orario speciale; se lì non ci sono orari, resta quello standard
+const orarioDelPulsante = () => (eDeposito($('rCommessa').value) && haOrari(stato.orarioDeposito) ? stato.orarioDeposito : stato.orarioStandard);
 function aggiornaPulsanteStandard() {
-  const s = stato.orarioStandard;
-  $('btnOrarioStandard').textContent = s.nome || ORARIO_STANDARD_BASE.nome;
-  $('btnOrarioStandard').hidden = !CHIAVI_ORARI.some(k => s[k]);
+  const s = orarioDelPulsante();
+  const speciale = s === stato.orarioDeposito;
+  $('btnOrarioStandard').textContent = s.nome || (speciale ? ORARIO_DEPOSITO_BASE : ORARIO_STANDARD_BASE).nome;
+  $('btnOrarioStandard').hidden = !haOrari(s);
 }
 $('btnOrarioStandard').onclick = () => {
-  document.querySelectorAll('[data-tutti]').forEach(inp => { inp.value = stato.orarioStandard[inp.dataset.tutti] || ''; });
+  const s = orarioDelPulsante();
+  document.querySelectorAll('[data-tutti]').forEach(inp => { inp.value = s[inp.dataset.tutti] || ''; });
+  if (s === stato.orarioDeposito) {
+    $('rMensaDalle').value = s.mensaDalle || '';
+    $('rMensaAlle').value = s.mensaAlle || '';
+    aggiornaTastoPausa();
+  }
   applicaOrariATutti();
 };
+// Lasciando COMM.0 per un'altra commessa, la pausa del magazzino non deve restare per sbaglio
+let commessaDiPrima = '';
+$('rCommessa').addEventListener('change', () => {
+  const era = commessaDiPrima;
+  commessaDiPrima = $('rCommessa').value;
+  const d = stato.orarioDeposito;
+  if (eDeposito(era) && !eDeposito(commessaDiPrima) && d.mensaAlle && $('rMensaDalle').value === d.mensaDalle && $('rMensaAlle').value === d.mensaAlle) {
+    $('rMensaDalle').value = PAUSA_DALLE;
+    $('rMensaAlle').value = PAUSA_ALLE;
+    aggiornaTastoPausa();
+    salvaBozza();
+  }
+  aggiornaPulsanteStandard();
+});
+let orarioDepositoToccato = false;
+function disegnaGestioneOrarioDeposito() {
+  if (stato.utente?.ruolo !== 'responsabile') return;
+  $('avvisoViaggioDeposito').hidden = viaggioMassimo('COMM.0') !== 0;
+  if (orarioDepositoToccato) return;
+  document.querySelectorAll('[data-deposito]').forEach(inp => { inp.value = stato.orarioDeposito[inp.dataset.deposito] || ''; });
+}
+$('formOrarioDeposito').addEventListener('input', () => { orarioDepositoToccato = true; });
+$('formOrarioDeposito').addEventListener('submit', async e => {
+  e.preventDefault();
+  const v = {};
+  document.querySelectorAll('[data-deposito]').forEach(inp => { v[inp.dataset.deposito] = inp.value.trim(); });
+  v.nome = v.nome.replace(/\s+/g, ' ') || ORARIO_DEPOSITO_BASE.nome;
+  try {
+    await setDoc(doc(db, 'elenchi', 'orarioDeposito'), { ...v, aggiornatoIl: serverTimestamp(), aggiornatoDa: stato.utente.nome });
+    orarioDepositoToccato = false;
+    disegnaGestioneOrarioDeposito();
+    avviso('Orario di COMM.0 salvato', 'ok');
+  } catch (err) { avviso(messaggioErrore(err), 'errore'); }
+});
 let orarioStandardToccato = false; // lo sviluppatore sta scrivendo: non sovrascrivere i suoi campi
 function disegnaGestioneOrarioStandard() {
   if (stato.utente?.ruolo !== 'responsabile' || orarioStandardToccato) return;
@@ -2048,6 +2104,7 @@ function mostraInfoElenchi() {
   }).join('');
   // Viaggio massimo per commessa: assenze, ferie e altre voci nascoste non servono
   const scelte = [[1, '1 ora'], [0.5, 'Mezz\'ora'], [0, 'Nessuno'], [VIAGGIO_VERO, 'Viaggio vero']];
+  disegnaGestioneOrarioDeposito();
   $('listaViaggi').innerHTML = e.commesse.filter(c => !e.nascoste.includes(c)).map(c => {
     const max = viaggioMassimo(c);
     return `<label class="riga-viaggio"><span>${esc(c)}</span><select data-viaggio-voce="${esc(c)}">${scelte.map(([v, t]) => `<option value="${v}" ${v === max ? 'selected' : ''}>${t}</option>`).join('')}</select></label>`;
