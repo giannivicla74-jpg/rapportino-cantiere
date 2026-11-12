@@ -487,6 +487,12 @@ button.o-p { cursor: pointer; -webkit-tap-highlight-color: transparent; }
 .corr { margin-left: auto; font: 600 .72rem Arial, sans-serif; text-transform: none; color: var(--primario); background: none; border: 1px solid #c9d1db; border-radius: 6px; padding: 2px 8px; cursor: pointer; }
 .corr:hover { border-color: var(--primario); }
 .corr + .corr { margin-left: 4px; }
+/* orari della pagina 1: un clic li corregge (solo a schermo) */
+@media screen {
+  #dettaglioFronte .cliccabile { cursor: pointer; }
+  #dettaglioFronte .cliccabile:hover { background: #e3ebf7; }
+  #dettaglioFronte .cliccabile:hover b { text-decoration: underline dotted; }
+}
 /* finestra per correggere gli orari della pagina 1 */
 .griglia-orari { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 0 12px; }
 .griglia-orari input { font-size: 1.05rem; }
