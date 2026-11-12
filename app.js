@@ -1158,13 +1158,12 @@ const orarioComune = (r, k) => { const s = new Set((r.operai || []).map(o => o[k
 // Per ogni commessa l'area sviluppatore sceglie (elenchi/correnti, campo viaggi):
 // - "Viaggio vero" (valore 'vero'): il viaggio si conta tutto, senza massimo;
 // - "Nessuno" (valore 0): il tempo di viaggio non conta, si pagano solo le ore da inizio a fine lavori.
-// Se non è stato scelto niente vale Viaggio vero, tranne il deposito COMM.0 (Nessuno). I vecchi valori 1 e 0,5 valgono Viaggio vero.
+// Se non è stato scelto niente vale Viaggio vero, per tutte le commesse compresa COMM.0. I vecchi valori 1 e 0,5 valgono Viaggio vero.
 // es. arrivo 06:00, lavori 08:00-16:00, rientro 18:00, pausa 1 → Ord. D 7 + Viaggio 4.
 const VIAGGIO_VERO = 'vero';
 const viaggioDi = c => {
   const scelto = stato.elenchi.viaggi?.[c];
-  if (scelto !== undefined) return Number(scelto) === 0 && scelto !== VIAGGIO_VERO ? 0 : VIAGGIO_VERO;
-  return eDeposito(c) ? 0 : VIAGGIO_VERO;
+  return scelto !== undefined && scelto !== VIAGGIO_VERO && Number(scelto) === 0 ? 0 : VIAGGIO_VERO;
 };
 // Ore di un tratto di viaggio; 0 se manca un orario o se gli orari sono al contrario (es. entrata dopo l'inizio lavori)
 const tratto = (da, a) => { const h = da && a ? differenzaOre(da, a) : 0; return h > 0 && h < 12 ? h : 0; };
