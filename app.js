@@ -1276,12 +1276,11 @@ function tabellaOperaiFronte(r) {
   const segnati = r.operai || [];
   const rigaSegnato = (o, num) => {
     const tolto = tolti.includes(o.nome);
-    // un clic sugli orari apre la finestra per correggerli (come il tasto "orari")
+    // un clic sugli orari apre la finestra per correggerli
     const clic = tolto ? '' : ` data-orari-operaio="${esc(o.nome)}" title="Clicca per correggere gli orari"`;
     return `<div class="operaio presente ${tolto ? 'tolto' : ''}">
       <div class="o-nome"><span class="o-num">${num}.</span><span class="o-testo">${esc(o.nome)}</span>
         ${tolto ? '<span class="nota-corr">tolto dall\'ufficio</span>' : ''}
-        ${tolto ? '' : `<button type="button" class="corr" data-orari-operaio="${esc(o.nome)}">orari</button>`}
         <button type="button" class="corr" data-${tolto ? 'rimetti' : 'togli-p1'}="${esc(o.nome)}">${tolto ? 'rimetti' : 'togli'}</button></div>
       <div class="o-p casella-p"></div>
       <div class="o-ora o-partenza ${tolto ? '' : 'cliccabile'}"${clic}><span class="o-et">Partenza deposito</span><b>${esc(o.partenza) || '…'}</b></div>
@@ -1365,8 +1364,7 @@ function disegnaFronte(r) {
           ? r.automezzi.map(m => { const a = (r.autistiMezzi || []).find(x => x.mezzo === m)?.autista; return a ? `${m} – Autista: ${a}` : m; }).join('\n')
           : r.automezzi)}</div>
         <div class="r-cella"><span class="r-et normale">ORARIO DI PAUSA MENSA:</span>
-          <div class="dalle-alle cliccabile" data-orari-mensa title="Clicca per correggere la pausa"><span>Dalle</span><b>${esc(r.mensaDalle) || '…'}</b><span>Alle</span><b>${esc(r.mensaAlle) || '…'}</b>
-            <button type="button" class="corr" data-orari-mensa>modifica</button></div></div>
+          <div class="dalle-alle cliccabile" data-orari-mensa title="Clicca per correggere la pausa"><span>Dalle</span><b>${esc(r.mensaDalle) || '…'}</b><span>Alle</span><b>${esc(r.mensaAlle) || '…'}</b></div></div>
       </div>
     </div>
     <div class="riquadro">
@@ -1482,7 +1480,7 @@ $('dettaglioFronte').addEventListener('click', e => {
     disegnaFronte(stato.aperto.dati);
     return;
   }
-  // tasto "orari" o clic direttamente sugli orari (anche sul numero in grassetto)
+  // clic direttamente sugli orari (anche sul numero in grassetto)
   const suOrari = e.target.closest('[data-orari-operaio]');
   if (suOrari) { correggiOrariOperaio(suOrari.dataset.orariOperaio); return; }
   if (e.target.closest('[data-orari-mensa]')) { correggiPausaMensa(); return; }
