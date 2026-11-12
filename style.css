@@ -486,6 +486,12 @@ button.o-p { cursor: pointer; -webkit-tap-highlight-color: transparent; }
 .nota-corr { font-family: Arial, sans-serif; font-style: normal; font-size: .68rem; text-transform: none; color: #8a5a00; background: #fdebc0; border-radius: 8px; padding: 0 6px; }
 .corr { margin-left: auto; font: 600 .72rem Arial, sans-serif; text-transform: none; color: var(--primario); background: none; border: 1px solid #c9d1db; border-radius: 6px; padding: 2px 8px; cursor: pointer; }
 .corr:hover { border-color: var(--primario); }
+.corr + .corr { margin-left: 4px; }
+/* finestra per correggere gli orari della pagina 1 */
+.griglia-orari { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 0 12px; }
+.griglia-orari input { font-size: 1.05rem; }
+.spunta-orari { display: flex; align-items: center; gap: 8px; margin: 4px 0 8px; font-weight: 600; cursor: pointer; }
+.spunta-orari input { width: 20px; height: 20px; }
 @media print { .corr, .correggi-operai { display: none !important; } }
 .correggi-operai { margin-top: 6px; }
 .correggi-operai select { border: 1.5px dashed #9aa3ad; border-radius: 6px; min-height: 40px; font-weight: 600; color: var(--inchiostro); }

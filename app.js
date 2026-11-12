@@ -1238,8 +1238,11 @@ function bloccoDellOrario(blocchi, r, nome) {
 
 function apriRapportino(r) {
   if (!r) return;
+  // copia degli orari: l'ufficio li può correggere senza toccare il rapportino dell'elenco finché non salva
+  r = { ...r, operai: (r.operai || []).map(o => ({ ...o })) };
   stato.aperto = {
     id: r.id, dati: r,
+    orariSalvati: impronteOrari(r),
     blocchi: (r.blocchi?.length ? structuredClone(r.blocchi) : blocchiIniziali(r)),
     aggiunti: [...(r.operaiAggiunti || [])], // operai non segnati dal caposquadra, aggiunti dall'ufficio
     tolti: [...(r.operaiTolti || [])]        // operai segnati per sbaglio dal caposquadra, tolti dall'ufficio
@@ -1276,6 +1279,7 @@ function tabellaOperaiFronte(r) {
     return `<div class="operaio presente ${tolto ? 'tolto' : ''}">
       <div class="o-nome"><span class="o-num">${num}.</span><span class="o-testo">${esc(o.nome)}</span>
         ${tolto ? '<span class="nota-corr">tolto dall\'ufficio</span>' : ''}
+        ${tolto ? '' : `<button type="button" class="corr" data-orari-operaio="${esc(o.nome)}">orari</button>`}
         <button type="button" class="corr" data-${tolto ? 'rimetti' : 'togli-p1'}="${esc(o.nome)}">${tolto ? 'rimetti' : 'togli'}</button></div>
       <div class="o-p casella-p"></div>
       <div class="o-ora o-partenza"><span class="o-et">Partenza deposito</span><b>${esc(o.partenza) || '…'}</b></div>
@@ -1359,7 +1363,8 @@ function disegnaFronte(r) {
           ? r.automezzi.map(m => { const a = (r.autistiMezzi || []).find(x => x.mezzo === m)?.autista; return a ? `${m} – Autista: ${a}` : m; }).join('\n')
           : r.automezzi)}</div>
         <div class="r-cella"><span class="r-et normale">ORARIO DI PAUSA MENSA:</span>
-          <div class="dalle-alle"><span>Dalle</span><b>${esc(r.mensaDalle) || '…'}</b><span>Alle</span><b>${esc(r.mensaAlle) || '…'}</b></div></div>
+          <div class="dalle-alle"><span>Dalle</span><b>${esc(r.mensaDalle) || '…'}</b><span>Alle</span><b>${esc(r.mensaAlle) || '…'}</b>
+            <button type="button" class="corr" data-orari-mensa>modifica</button></div></div>
       </div>
     </div>
     <div class="riquadro">
@@ -1397,6 +1402,68 @@ function campiCorrezioni() {
   if (correzioniDaSalvare()) { c.correttoDaNome = stato.utente.nome; c.correttoDaUid = stato.utente.uid; c.correttoIl = serverTimestamp(); }
   return c;
 }
+// ---- Orari della pagina 1 corretti dall'ufficio: sostituiscono quelli del caposquadra (non resta traccia di quelli vecchi)
+function impronteOrari(r) {
+  return JSON.stringify({ operai: (r.operai || []).map(o => [o.nome, ...CAMPI_ORARI.map(k => o[k] || '')]), mensa: [r.mensaDalle || '', r.mensaAlle || ''] });
+}
+const orariDaSalvare = () => impronteOrari(stato.aperto.dati) !== stato.aperto.orariSalvati;
+// Campi da salvare nel rapportino quando gli orari sono cambiati
+function campiOrari() {
+  const r = stato.aperto.dati;
+  return orariDaSalvare() ? { operai: r.operai, mensaDalle: r.mensaDalle || '', mensaAlle: r.mensaAlle || '' } : {};
+}
+const ETICHETTE_ORARI = { partenza: 'colPartenza', rientro: 'colRientro' };
+function campoOrario(et, k, v) {
+  return `<label class="campo"><span>${esc(et)}</span><input type="time" data-orario-nuovo="${k}" value="${esc(v || '')}"></label>`;
+}
+async function correggiOrariOperaio(nome) {
+  const r = stato.aperto.dati, o = r.operai.find(x => x.nome === nome);
+  if (!o) return;
+  const it = intestazioneDi(r);
+  const altri = r.operai.filter(x => x.nome !== nome && !stato.aperto.tolti.includes(x.nome)).length;
+  const ok = await conferma(`Orari di ${nome}`, `
+    <div class="griglia-orari">
+      ${campoOrario(titoloColonna(it, ETICHETTE_ORARI.partenza), 'partenza', o.partenza)}
+      ${campoOrario('Inizio lavori (dalle)', 'dalle', o.dalle)}
+      ${campoOrario('Fine lavori (alle)', 'alle', o.alle)}
+      ${campoOrario(titoloColonna(it, ETICHETTE_ORARI.rientro), 'rientro', o.rientro)}
+    </div>
+    ${altri ? `<label class="spunta-orari"><input type="checkbox" id="orariPerTutti"> Stessi orari per tutti i presenti (${altri + 1})</label>` : ''}
+    <p class="aiuto">Gli orari nuovi prendono il posto di quelli scritti dal caposquadra.</p>`, 'Cambia orari');
+  if (!ok) return;
+  const nuovi = Object.fromEntries([...$('finestraCorpo').querySelectorAll('[data-orario-nuovo]')].map(i => [i.dataset.orarioNuovo, i.value]));
+  const perTutti = $('orariPerTutti')?.checked;
+  r.operai.filter(x => x.nome === nome || (perTutti && !stato.aperto.tolti.includes(x.nome))).forEach(x => Object.assign(x, nuovi));
+  await dopoCambioOrari();
+}
+async function correggiPausaMensa() {
+  const r = stato.aperto.dati;
+  const ok = await conferma('Orario di pausa mensa', `
+    <div class="griglia-orari">${campoOrario('Dalle', 'mensaDalle', r.mensaDalle)}${campoOrario('Alle', 'mensaAlle', r.mensaAlle)}</div>
+    <p class="aiuto">Lascia vuoti i due orari se non c'è stata pausa.</p>`, 'Cambia pausa');
+  if (!ok) return;
+  $('finestraCorpo').querySelectorAll('[data-orario-nuovo]').forEach(i => { r[i.dataset.orarioNuovo] = i.value; });
+  await dopoCambioOrari();
+}
+// Dopo una correzione: la pagina 2 si può ricalcolare con gli orari nuovi (le ore scritte a mano andrebbero perse)
+async function dopoCambioOrari() {
+  ridisegnaRapportino();
+  if (!orariDaSalvare()) return;
+  const ricalcola = await finestra('Ricalcolare le ore?', `
+    <p>Vuoi ricalcolare le ore della pagina 2 con gli orari nuovi?</p>
+    <p class="aiuto">Le ore e i riquadri della pagina 2 vengono rifatti da capo: le modifiche scritte a mano lì si perdono.</p>`,
+    [{ testo: 'No, lascia le ore', valore: false }, { testo: 'Sì, ricalcola', valore: true, primario: true }]);
+  if (ricalcola) {
+    const { dati, tolti, aggiunti } = stato.aperto;
+    const blocchi = blocchiIniziali({ ...dati, operai: dati.operai.filter(o => !tolti.includes(o.nome)) });
+    aggiunti.forEach(n => { if (!blocchi[0].operai.includes(n)) blocchi[0].operai.push(n); });
+    stato.aperto.blocchi = blocchi;
+    ridisegnaRapportino();
+    aggiornaRiepilogo();
+  }
+  avviso(stato.aperto.dati.stato === 'convalidato' ? 'Orari cambiati: premi "Riscrivi su Excel" per salvarli' : 'Orari cambiati: premi "Salva senza convalidare" o convalida per salvarli', 'ok');
+}
+
 function ridisegnaRapportino() {
   disegnaFronte(stato.aperto.dati);
   disegnaBlocchi();
@@ -1413,6 +1480,8 @@ $('dettaglioFronte').addEventListener('click', e => {
     disegnaFronte(stato.aperto.dati);
     return;
   }
+  if (d.orariOperaio !== undefined) { correggiOrariOperaio(d.orariOperaio); return; }
+  if (d.orariMensa !== undefined) { correggiPausaMensa(); return; }
   if (d.aggiungiRiga !== undefined) {
     // operaio senza X trovato nell'elenco completo: aggiunto dall'ufficio e messo nel primo blocco ore
     if (!aggiunti.includes(d.aggiungiRiga)) aggiunti.push(d.aggiungiRiga);
@@ -1647,9 +1716,10 @@ function aggiornaRiepilogo() {
 
 $('btnSalvaOre').onclick = async () => {
   try {
-    const campi = { blocchi: stato.aperto.blocchi, ...campiCorrezioni() };
+    const campi = { blocchi: stato.aperto.blocchi, ...campiCorrezioni(), ...campiOrari() };
     await updateDoc(doc(db, 'rapportini', stato.aperto.id), campi);
     Object.assign(stato.aperto.dati, campi, campi.correttoIl ? { correttoIl: new Date() } : {});
+    stato.aperto.orariSalvati = impronteOrari(stato.aperto.dati);
     disegnaFronte(stato.aperto.dati);
     avviso('Ore salvate (il rapportino resta tra gli arrivati)', 'ok');
   } catch (err) { avviso(messaggioErrore(err), 'errore'); }
@@ -1897,6 +1967,7 @@ $('btnConvalida').onclick = async () => {
       stato: 'convalidato',
       blocchi: stato.aperto.blocchi,
       ...campiCorrezioni(),
+      ...campiOrari(),
       convalidatoIl: serverTimestamp(),
       convalidatoDaUid: stato.utente.uid,
       convalidatoDaNome: stato.utente.nome,
@@ -2013,6 +2084,7 @@ async function archiviaRapportino(r) {
 $('btnArchivia').onclick = async () => {
   const r = stato.aperto?.dati;
   if (!r) return;
+  if (orariDaSalvare()) { avviso('Hai cambiato degli orari: prima premi "Riscrivi su Excel"', 'errore'); return; }
   try {
     const p = await archiviaRapportino(r);
     $('infoArchivioRapportino').innerHTML = `✓ In archivio: <b>${esc(r.archivioPercorso)}/${esc(r.archivioFile)}</b>`;
