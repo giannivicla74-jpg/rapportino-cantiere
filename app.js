@@ -1412,21 +1412,19 @@ function campiOrari() {
   const r = stato.aperto.dati;
   return orariDaSalvare() ? { operai: r.operai, mensaDalle: r.mensaDalle || '', mensaAlle: r.mensaAlle || '' } : {};
 }
-const ETICHETTE_ORARI = { partenza: 'colPartenza', rientro: 'colRientro' };
 function campoOrario(et, k, v) {
   return `<label class="campo"><span>${esc(et)}</span><input type="time" data-orario-nuovo="${k}" value="${esc(v || '')}"></label>`;
 }
 async function correggiOrariOperaio(nome) {
   const r = stato.aperto.dati, o = r.operai.find(x => x.nome === nome);
   if (!o) return;
-  const it = intestazioneDi(r);
   const altri = r.operai.filter(x => x.nome !== nome && !stato.aperto.tolti.includes(x.nome)).length;
   const ok = await conferma(`Orari di ${nome}`, `
     <div class="griglia-orari">
-      ${campoOrario(titoloColonna(it, ETICHETTE_ORARI.partenza), 'partenza', o.partenza)}
-      ${campoOrario('Inizio lavori (dalle)', 'dalle', o.dalle)}
-      ${campoOrario('Fine lavori (alle)', 'alle', o.alle)}
-      ${campoOrario(titoloColonna(it, ETICHETTE_ORARI.rientro), 'rientro', o.rientro)}
+      ${campoOrario('Orario arrivo in deposito', 'partenza', o.partenza)}
+      ${campoOrario('Orario inizio lavori', 'dalle', o.dalle)}
+      ${campoOrario('Orario fine lavori', 'alle', o.alle)}
+      ${campoOrario('Orario rientro in deposito', 'rientro', o.rientro)}
     </div>
     ${altri ? `<label class="spunta-orari"><input type="checkbox" id="orariPerTutti"> Stessi orari per tutti i presenti (${altri + 1})</label>` : ''}
     <p class="aiuto">Gli orari nuovi prendono il posto di quelli scritti dal caposquadra.</p>`, 'Cambia orari');
