@@ -2282,9 +2282,11 @@ $('listaMessaggi').addEventListener('click', async e => {
 // ---------------------------------------------------------------- elenchi dal file Excel
 function mostraInfoElenchi() {
   const e = stato.elenchi;
-  $('infoElenchi').textContent = e.operai.length
+  $('infoElenchi').textContent = $('infoElenchiConvalidati').textContent = e.operai.length
     ? `Ora sui telefoni: ${e.operai.length} operai e ${e.commesse.length} commesse${e.file ? ` (da ${e.file})` : ''}${e.aggiornatoIl ? `, aggiornati il ${dataOraIT(e.aggiornatoIl)}` : ''}.`
     : 'Elenchi non ancora caricati.';
+  // nella scheda Convalidati il pulsante c'è per tutti i responsabili, ma solo sul PC (l'Excel si legge da lì)
+  $('boxElenchiConvalidati').hidden = stato.utente?.ruolo !== 'responsabile' || dispositivoMobile();
   $('listaVisibili').innerHTML = e.commesse.map(c => {
     const si = !e.nascoste.includes(c);
     return `<label class="chip ${si ? 'si' : ''}"><input type="checkbox" data-voce="${esc(c)}" ${si ? 'checked' : ''}>${esc(c)}</label>`;
@@ -2316,7 +2318,9 @@ $('listaVisibili').addEventListener('change', async e => {
   catch (err) { avviso(messaggioErrore(err), 'errore'); mostraInfoElenchi(); }
 });
 
-$('btnAggiornaElenchi').onclick = async () => {
+// Stesso pulsante in due posti: area sviluppatore e scheda Convalidati (per tutti i responsabili).
+// Le regole del database permettono al responsabile di cambiare solo operai, commesse, voci nascoste, file e data.
+$('btnAggiornaElenchi').onclick = $('btnAggiornaElenchiConvalidati').onclick = async () => {
   if (!await richiediCartella()) return;
   try {
     const files = await CartellaExcel.listExcelFiles();
