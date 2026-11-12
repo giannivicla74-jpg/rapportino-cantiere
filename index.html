@@ -286,9 +286,9 @@
           <p class="aiuto">Il caposquadra può scegliere solo le voci spuntate. Assenze, ferie, malattia, smonto notte, corsi e visite
             sono tolte in automatico. Nel blocco ore del responsabile ci sono sempre tutte.</p>
           <div class="blocco-operai" id="listaVisibili"></div>
-          <h3>Viaggio massimo per commessa</h3>
-          <p class="aiuto">Serve per proporre le ore: il viaggio viene proposto solo se partenza e rientro sul rapportino mostrano un viaggio.
-            Quello che avanza va in Straord. D. Con <b>Viaggio vero</b>, per i cantieri lontani, non c'è limite: il viaggio è tutto quello calcolato dagli orari e le ordinarie sono il lavoro in cantiere, fino a 8 ore.
+          <h3>Viaggio per commessa</h3>
+          <p class="aiuto">Serve per proporre le ore. Il lavoro, da inizio a fine lavori meno la pausa, è Ord. D fino a 8 ore e poi Straord. D.
+            Con <b>Viaggio vero</b> il tempo da arrivo in deposito a inizio lavori e da fine lavori a rientro in deposito è Viaggio (anche se c'è solo uno dei due tratti); con <b>Nessuno</b> quel tempo non viene contato.
             I rapportini con le ore già salvate cambiano solo premendo il tasto che ripropone le ore.</p>
           <div class="lista-viaggi" id="listaViaggi"></div>
         </div>
@@ -326,7 +326,7 @@
           </form>
           <h3>Orario speciale per COMM.0</h3>
           <p class="aiuto">Quando nel rapportino la commessa è COMM.0, il pulsante usa questi orari e questa pausa. Lasciando vuoti i 4 orari, anche con COMM.0 resta l'orario standard.</p>
-          <p class="errore" id="avvisoViaggioDeposito" hidden>COMM.0 è su "Nessuno" in Viaggio massimo per commessa: l'app non proporrà il viaggio. Per avere 8 ordinarie e 1 di viaggio mettila su "1 ora".</p>
+          <p class="aiuto" id="avvisoViaggioDeposito" hidden>COMM.0 è su "Nessuno" in Viaggio per commessa: il tempo tra deposito e lavori non viene contato. Per contarlo come viaggio mettila su "Viaggio vero".</p>
           <form id="formOrarioDeposito">
             <label class="campo"><span>Nome del pulsante</span><input data-deposito="nome" maxlength="40" autocomplete="off"></label>
             <div class="griglia-2">

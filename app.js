@@ -722,7 +722,7 @@ $('rCommessa').addEventListener('change', () => {
 let orarioDepositoToccato = false;
 function disegnaGestioneOrarioDeposito() {
   if (stato.utente?.ruolo !== 'responsabile') return;
-  $('avvisoViaggioDeposito').hidden = viaggioMassimo('COMM.0') !== 0;
+  $('avvisoViaggioDeposito').hidden = viaggioDi('COMM.0') !== 0;
   if (orarioDepositoToccato) return;
   document.querySelectorAll('[data-deposito]').forEach(inp => { inp.value = stato.orarioDeposito[inp.dataset.deposito] || ''; });
 }
@@ -1151,45 +1151,42 @@ const oreVuote = () => Object.fromEntries(VOCI_ORE.map(([k]) => [k, '']));
 // Orario uguale per tutti gli operai del rapportino ('' se diversi o mancanti)
 const orarioComune = (r, k) => { const s = new Set((r.operai || []).map(o => o[k]).filter(Boolean)); return s.size === 1 ? [...s][0] : ''; };
 
-// Ore proposte per un turno del blocco (l'ufficio le può sempre cambiare), come sul cartaceo:
-// totale = uscita - entrata - pausa; prima Ord. D fino a 8 ore; quello che avanza va in VIAGGIO fino al
-// viaggio vero (deposito→cantiere + cantiere→deposito, solo se entrata e uscita sono gli orari del deposito);
-// il resto è Straord. D. Il viaggio pagato ha un massimo per commessa: es. senza pausa 07-17 → 8 + 1 viaggio + 1 straord.
-// Il massimo si sceglie nell'area sviluppatore (elenchi/correnti, campo viaggi). Se non è stato scelto vale 1 ora,
-// tranne il deposito COMM.0, dove il viaggio non esiste.
-const VIAGGIO_MAX = 1;
-const VIAGGIO_VERO = 'vero'; // nessun limite: si propone tutto il viaggio calcolato dagli orari
-const viaggioMassimo = c => {
+// Ore proposte per un turno del blocco (l'ufficio le può sempre cambiare). Regola decisa da Gianni (7.7):
+// - LAVORO = da inizio a fine lavori, meno la pausa: Ord. D fino a 8 ore, il resto Straord. D;
+// - VIAGGIO = da arrivo in deposito a inizio lavori + da fine lavori a rientro in deposito, ognuno solo se c'è
+//   (con solo inizio e fine lavori niente viaggio; con solo l'arrivo in deposito solo il viaggio di andata, e viceversa).
+// Per ogni commessa l'area sviluppatore sceglie (elenchi/correnti, campo viaggi):
+// - "Viaggio vero" (valore 'vero'): il viaggio si conta tutto, senza massimo;
+// - "Nessuno" (valore 0): il tempo di viaggio non conta, si pagano solo le ore da inizio a fine lavori.
+// Se non è stato scelto niente vale Viaggio vero, tranne il deposito COMM.0 (Nessuno). I vecchi valori 1 e 0,5 valgono Viaggio vero.
+// es. arrivo 06:00, lavori 08:00-16:00, rientro 18:00, pausa 1 → Ord. D 7 + Viaggio 4.
+const VIAGGIO_VERO = 'vero';
+const viaggioDi = c => {
   const scelto = stato.elenchi.viaggi?.[c];
-  if (scelto !== undefined) return scelto;
-  return /^COMM\.0$/i.test(String(c || '').trim()) ? 0 : VIAGGIO_MAX;
+  if (scelto !== undefined) return Number(scelto) === 0 && scelto !== VIAGGIO_VERO ? 0 : VIAGGIO_VERO;
+  return eDeposito(c) ? 0 : VIAGGIO_VERO;
 };
+// Ore di un tratto di viaggio; 0 se manca un orario o se gli orari sono al contrario (es. entrata dopo l'inizio lavori)
+const tratto = (da, a) => { const h = da && a ? differenzaOre(da, a) : 0; return h > 0 && h < 12 ? h : 0; };
 function proponiOreTurno(b, t, r) {
   const riga = b.righe[t];
   const totale = differenzaOre(riga.entrata, riga.uscita) ? Math.max(0, differenzaOre(riga.entrata, riga.uscita) - num(riga.pausa)) : 0;
   const ore = oreVuote();
   if (totale > 0) {
     let viaggio = 0;
-    // Gli orari sono quelli degli operai di questo blocco; un blocco senza operai del caposquadra guarda tutto il rapportino
-    const delBlocco = (r.operai || []).filter(o => b.operai.includes(o.nome));
-    const gruppo = delBlocco.length ? { operai: delBlocco } : r;
-    const [p, d, a, ri] = ['partenza', 'dalle', 'alle', 'rientro'].map(k => orarioComune(gruppo, k));
-    if (t === 0 && p && d && a && ri && riga.entrata === p && riga.uscita === ri) {
-      const v = differenzaOre(p, d) + differenzaOre(a, ri);
-      if (v > 0 && v < totale) viaggio = v;
+    // inizio e fine lavori degli operai di questo blocco (un blocco senza operai del caposquadra guarda tutto il rapportino);
+    // il viaggio si misura dall'entrata e dall'uscita della riga, così si ricalcola anche se l'ufficio le cambia
+    if (t === 0) {
+      const delBlocco = (r.operai || []).filter(o => b.operai.includes(o.nome));
+      const gruppo = delBlocco.length ? { operai: delBlocco } : r;
+      const d = orarioComune(gruppo, 'dalle'), a = orarioComune(gruppo, 'alle');
+      const v = tratto(riga.entrata, d) + tratto(a, riga.uscita);
+      if (v < totale) viaggio = v;
     }
-    const massimo = viaggioMassimo(riga.commessa || r.commessa);
-    // "Viaggio vero" (cantieri lontani): il viaggio resta intero e le ordinarie sono il lavoro in cantiere,
-    // es. 05:00-19:00 con lavori 08-16 e 1 di pausa = Ord. D 7 + Viaggio 6.
-    // Altrimenti prima le 8 ordinarie; quello che avanza è viaggio (fino al massimo), il resto straordinario,
-    // es. 07:00-17:00 meno 1 di pausa = 9, viaggio vero 2 → Ord. D 8 + Viaggio 1
-    const viaggioIntero = massimo === VIAGGIO_VERO;
-    const ordinarie = Math.min(8, viaggioIntero ? totale - viaggio : totale);
-    const resto = totale - ordinarie;
-    const vg = viaggioIntero ? viaggio : Math.min(viaggio, resto, massimo);
-    ore.or = fmtOre(ordinarie);
-    if (vg > 0) ore.v = fmtOre(vg);
-    if (resto - vg > 0) ore.sd = fmtOre(resto - vg);
+    const lavoro = totale - viaggio;
+    ore.or = fmtOre(Math.min(8, lavoro));
+    if (lavoro > 8) ore.sd = fmtOre(lavoro - 8);
+    if (viaggio > 0 && viaggioDi(riga.commessa || r.commessa) === VIAGGIO_VERO) ore.v = fmtOre(viaggio);
   }
   b.ore[`t${t + 1}`] = ore;
 }
@@ -1198,10 +1195,12 @@ function bloccoIniziale(r) {
   const tutti = (r.operai || []).map(o => o.nome);
   const comune = k => orarioComune(r, k);
   const pausa = differenzaOre(r.mensaDalle, r.mensaAlle);
+  // con la commessa su "Nessuno" il viaggio non conta: entrata e uscita sono gli orari in cantiere, così i totali tornano
+  const conViaggio = viaggioDi(r.commessa) === VIAGGIO_VERO;
   const b = {
     righe: [
       // come sul cartaceo: entrata = partenza dal deposito, uscita = rientro in deposito (se mancano, gli orari in cantiere)
-      { commessa: r.commessa || '', entrata: comune('partenza') || comune('dalle'), uscita: comune('rientro') || comune('alle'), pausa: pausa ? fmtOre(pausa) : '' },
+      { commessa: r.commessa || '', entrata: (conViaggio && comune('partenza')) || comune('dalle'), uscita: (conViaggio && comune('rientro')) || comune('alle'), pausa: pausa ? fmtOre(pausa) : '' },
       { commessa: '', entrata: '', uscita: '', pausa: '' }
     ],
     ore: { t1: oreVuote(), t2: oreVuote() },
@@ -2289,11 +2288,11 @@ function mostraInfoElenchi() {
     const si = !e.nascoste.includes(c);
     return `<label class="chip ${si ? 'si' : ''}"><input type="checkbox" data-voce="${esc(c)}" ${si ? 'checked' : ''}>${esc(c)}</label>`;
   }).join('');
-  // Viaggio massimo per commessa: assenze, ferie e altre voci nascoste non servono
-  const scelte = [[1, '1 ora'], [0.5, 'Mezz\'ora'], [0, 'Nessuno'], [VIAGGIO_VERO, 'Viaggio vero']];
+  // Viaggio per commessa: assenze, ferie e altre voci nascoste non servono
+  const scelte = [[VIAGGIO_VERO, 'Viaggio vero'], [0, 'Nessuno']];
   disegnaGestioneOrarioDeposito();
   $('listaViaggi').innerHTML = e.commesse.filter(c => !e.nascoste.includes(c)).map(c => {
-    const max = viaggioMassimo(c);
+    const max = viaggioDi(c);
     return `<label class="riga-viaggio"><span>${esc(c)}</span><select data-viaggio-voce="${esc(c)}">${scelte.map(([v, t]) => `<option value="${v}" ${v === max ? 'selected' : ''}>${t}</option>`).join('')}</select></label>`;
   }).join('');
 }
