@@ -1237,7 +1237,9 @@ function bloccoDellOrario(blocchi, r, nome) {
 function apriRapportino(r) {
   if (!r) return;
   // copia degli orari: l'ufficio li può correggere senza toccare il rapportino dell'elenco finché non salva
-  r = { ...r, operai: (r.operai || []).map(o => ({ ...o })) };
+  // (anche gli orari degli operai aggiunti dall'ufficio, in orariAggiunti: nome → { partenza, dalle, alle, rientro })
+  r = { ...r, operai: (r.operai || []).map(o => ({ ...o })),
+    orariAggiunti: Object.fromEntries(Object.entries(r.orariAggiunti || {}).map(([n, o]) => [n, { ...o }])) };
   stato.aperto = {
     id: r.id, dati: r,
     orariSalvati: impronteOrari(r),
@@ -1286,13 +1288,20 @@ function tabellaOperaiFronte(r) {
       <div class="o-ora o-rientro ${tolto ? '' : 'cliccabile'}"${clic}><span class="o-et">Rientro deposito</span><b>${esc(o.rientro) || '…'}</b></div>
     </div>`;
   };
-  const rigaAggiunto = (n, num) => `<div class="operaio presente aggiunto">
+  // operaio aggiunto dall'ufficio: i suoi orari si scrivono con un clic, come quelli degli altri
+  const rigaAggiunto = (n, num) => {
+    const o = stato.aperto.dati.orariAggiunti?.[n] || {};
+    const clic = ` data-orari-operaio="${esc(n)}" title="Clicca per scrivere gli orari"`;
+    return `<div class="operaio presente aggiunto">
       <div class="o-nome"><span class="o-num">${num}.</span><span class="o-testo">${esc(n)}</span>
         <span class="nota-corr">aggiunto dall'ufficio</span>
         <button type="button" class="corr" data-togli-operaio="${esc(n)}">togli</button></div>
       <div class="o-p casella-p"></div>
-      <div class="o-ora o-partenza"><b>…</b></div><div class="o-ora o-cantiere"><b>…</b></div><div class="o-ora o-rientro"><b>…</b></div>
+      <div class="o-ora o-partenza cliccabile"${clic}><span class="o-et">Partenza deposito</span><b>${esc(o.partenza) || '…'}</b></div>
+      <div class="o-ora o-cantiere cliccabile"${clic}><span class="o-et">Dalle</span><b>${esc(o.dalle) || '…'}</b><span class="o-et">Alle</span><b>${esc(o.alle) || '…'}</b></div>
+      <div class="o-ora o-rientro cliccabile"${clic}><span class="o-et">Rientro deposito</span><b>${esc(o.rientro) || '…'}</b></div>
     </div>`;
+  };
   const rigaVuota = (n, num) => `<div class="operaio assente">
       <div class="o-nome"><span class="o-num">${num}.</span><span class="o-testo">${esc(n)}</span>
         <button type="button" class="corr" data-aggiungi-riga="${esc(n)}">aggiungi</button></div>
@@ -1402,21 +1411,35 @@ function campiCorrezioni() {
 }
 // ---- Orari della pagina 1 corretti dall'ufficio: sostituiscono quelli del caposquadra (non resta traccia di quelli vecchi)
 function impronteOrari(r) {
-  return JSON.stringify({ operai: (r.operai || []).map(o => [o.nome, ...CAMPI_ORARI.map(k => o[k] || '')]), mensa: [r.mensaDalle || '', r.mensaAlle || ''] });
+  return JSON.stringify({ operai: (r.operai || []).map(o => [o.nome, ...CAMPI_ORARI.map(k => o[k] || '')]), mensa: [r.mensaDalle || '', r.mensaAlle || ''],
+    aggiunti: Object.entries(r.orariAggiunti || {}).sort(([a], [b]) => a.localeCompare(b)).map(([n, o]) => [n, ...CAMPI_ORARI.map(k => o[k] || '')]) });
 }
 const orariDaSalvare = () => impronteOrari(stato.aperto.dati) !== stato.aperto.orariSalvati;
-// Campi da salvare nel rapportino quando gli orari sono cambiati
+// Campi da salvare nel rapportino quando gli orari sono cambiati (degli aggiunti solo quelli ancora nel rapportino)
 function campiOrari() {
   const r = stato.aperto.dati;
-  return orariDaSalvare() ? { operai: r.operai, mensaDalle: r.mensaDalle || '', mensaAlle: r.mensaAlle || '' } : {};
+  const orariAggiunti = Object.fromEntries(Object.entries(r.orariAggiunti || {}).filter(([n]) => stato.aperto.aggiunti.includes(n)));
+  return orariDaSalvare() ? { operai: r.operai, orariAggiunti, mensaDalle: r.mensaDalle || '', mensaAlle: r.mensaAlle || '' } : {};
+}
+// Operai presenti con i loro orari: quelli del caposquadra (non tolti) e quelli aggiunti dall'ufficio
+function operaiConOrari() {
+  const { dati, tolti, aggiunti } = stato.aperto;
+  const segnati = (dati.operai || []).filter(o => !tolti.includes(o.nome));
+  return [...segnati, ...aggiunti.filter(n => !segnati.some(o => o.nome === n)).map(n => ({ nome: n, ...(dati.orariAggiunti?.[n] || {}) }))];
 }
 function campoOrario(et, k, v) {
   return `<label class="campo"><span>${esc(et)}</span><input type="time" data-orario-nuovo="${k}" value="${esc(v || '')}"></label>`;
 }
 async function correggiOrariOperaio(nome) {
-  const r = stato.aperto.dati, o = r.operai.find(x => x.nome === nome);
-  if (!o) return;
-  const altri = r.operai.filter(x => x.nome !== nome && !stato.aperto.tolti.includes(x.nome)).length;
+  const r = stato.aperto.dati;
+  const segnato = r.operai.find(x => x.nome === nome);
+  if (!segnato && !stato.aperto.aggiunti.includes(nome)) return;
+  r.orariAggiunti ||= {};
+  // operaio aggiunto senza orari: la finestra propone gli orari comuni della squadra, così basta confermare
+  const comuni = Object.fromEntries(CAMPI_ORARI.map(k => [k, orarioComune({ operai: r.operai.filter(x => !stato.aperto.tolti.includes(x.nome)) }, k)]));
+  const o = segnato || (CAMPI_ORARI.some(k => r.orariAggiunti[nome]?.[k]) ? r.orariAggiunti[nome] : comuni);
+  const presenti = operaiConOrari();
+  const altri = presenti.length - 1;
   const ok = await conferma(`Orari di ${nome}`, `
     <div class="griglia-orari">
       ${campoOrario('Orario arrivo in deposito', 'partenza', o.partenza)}
@@ -1425,11 +1448,15 @@ async function correggiOrariOperaio(nome) {
       ${campoOrario('Orario rientro in deposito', 'rientro', o.rientro)}
     </div>
     ${altri ? `<label class="spunta-orari"><input type="checkbox" id="orariPerTutti"> Stessi orari per tutti i presenti (${altri + 1})</label>` : ''}
-    <p class="aiuto">Gli orari nuovi prendono il posto di quelli scritti dal caposquadra.</p>`, 'Cambia orari');
+    <p class="aiuto">${segnato ? 'Gli orari nuovi prendono il posto di quelli scritti dal caposquadra.' : 'Operaio aggiunto dall\'ufficio: scrivi i suoi orari (sono proposti quelli della squadra).'}</p>`, 'Cambia orari');
   if (!ok) return;
   const nuovi = Object.fromEntries([...$('finestraCorpo').querySelectorAll('[data-orario-nuovo]')].map(i => [i.dataset.orarioNuovo, i.value]));
   const perTutti = $('orariPerTutti')?.checked;
-  r.operai.filter(x => x.nome === nome || (perTutti && !stato.aperto.tolti.includes(x.nome))).forEach(x => Object.assign(x, nuovi));
+  (perTutti ? presenti.map(x => x.nome) : [nome]).forEach(n => {
+    const s = r.operai.find(x => x.nome === n);
+    if (s) Object.assign(s, nuovi);
+    else r.orariAggiunti[n] = { ...(r.orariAggiunti[n] || {}), ...nuovi };
+  });
   await dopoCambioOrari();
 }
 async function correggiPausaMensa() {
@@ -1450,9 +1477,12 @@ async function dopoCambioOrari() {
     <p class="aiuto">Le ore e i riquadri della pagina 2 vengono rifatti da capo: le modifiche scritte a mano lì si perdono.</p>`,
     [{ testo: 'No, lascia le ore', valore: false }, { testo: 'Sì, ricalcola', valore: true, primario: true }]);
   if (ricalcola) {
-    const { dati, tolti, aggiunti } = stato.aperto;
-    const blocchi = blocchiIniziali({ ...dati, operai: dati.operai.filter(o => !tolti.includes(o.nome)) });
-    aggiunti.forEach(n => { if (!blocchi[0].operai.includes(n)) blocchi[0].operai.push(n); });
+    // riquadri per orario con tutti i presenti che hanno orari (anche gli aggiunti dall'ufficio);
+    // chi non ha nessun orario va nel primo riquadro
+    const presenti = operaiConOrari();
+    const conOrari = presenti.filter(o => CAMPI_ORARI.some(k => o[k]));
+    const blocchi = blocchiIniziali({ ...stato.aperto.dati, operai: conOrari });
+    presenti.forEach(o => { if (!blocchi.some(b => b.operai.includes(o.nome))) blocchi[0].operai.push(o.nome); });
     stato.aperto.blocchi = blocchi;
     ridisegnaRapportino();
     aggiornaRiepilogo();
@@ -1652,7 +1682,7 @@ $('blocchi').addEventListener('click', e => {
   }
   if (az === 'proponi') {
     // ricalcola le ore dei due turni da entrata, uscita e pausa (sovrascrive quelle scritte)
-    [0, 1].forEach(t => proponiOreTurno(bl[i], t, stato.aperto.dati));
+    [0, 1].forEach(t => proponiOreTurno(bl[i], t, { ...stato.aperto.dati, operai: operaiConOrari() }));
     avviso('Ore proposte: controllale prima di convalidare', 'ok');
   }
   disegnaBlocchi();
