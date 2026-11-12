@@ -2282,13 +2282,9 @@ $('listaMessaggi').addEventListener('click', async e => {
 // ---------------------------------------------------------------- elenchi dal file Excel
 function mostraInfoElenchi() {
   const e = stato.elenchi;
-  const daQuando = `${e.file ? ` (da ${e.file})` : ''}${e.aggiornatoIl ? `, aggiornate il ${dataOraIT(e.aggiornatoIl)}` : ''}.`;
   $('infoElenchi').textContent = e.operai.length
-    ? `Ora sui telefoni: ${e.operai.length} operai e ${e.commesse.length} commesse${daQuando.replace('aggiornate', 'aggiornati')}`
+    ? `Ora sui telefoni: ${e.operai.length} operai e ${e.commesse.length} commesse${e.file ? ` (da ${e.file})` : ''}${e.aggiornatoIl ? `, aggiornati il ${dataOraIT(e.aggiornatoIl)}` : ''}.`
     : 'Elenchi non ancora caricati.';
-  $('infoElenchiConvalidati').textContent = e.commesse.length ? `Ora sui telefoni: ${e.commesse.length} commesse${daQuando}` : 'Commesse non ancora caricate.';
-  // nella scheda Convalidati il pulsante c'è per tutti i responsabili, ma solo sul PC (l'Excel si legge da lì)
-  $('boxElenchiConvalidati').hidden = stato.utente?.ruolo !== 'responsabile' || dispositivoMobile();
   $('listaVisibili').innerHTML = e.commesse.map(c => {
     const si = !e.nascoste.includes(c);
     return `<label class="chip ${si ? 'si' : ''}"><input type="checkbox" data-voce="${esc(c)}" ${si ? 'checked' : ''}>${esc(c)}</label>`;
@@ -2320,33 +2316,27 @@ $('listaVisibili').addEventListener('change', async e => {
   catch (err) { avviso(messaggioErrore(err), 'errore'); mostraInfoElenchi(); }
 });
 
-// Stesso pulsante in due posti: area sviluppatore e scheda Convalidati (per tutti i responsabili).
-// Area sviluppatore: operai e commesse. Scheda Convalidati (tutti i responsabili): SOLO le commesse, gli operai non si toccano.
-// Le regole del database permettono al responsabile di cambiare solo commesse, voci nascoste, file e data.
-async function aggiornaDaExcel(soloCommesse) {
+$('btnAggiornaElenchi').onclick = async () => {
   if (!await richiediCartella()) return;
   try {
     const files = await CartellaExcel.listExcelFiles();
     const master = CartellaExcel.masterName(files);
     if (!master) throw new Error('nella cartella non trovo il file Master_Operai');
     const bytes = await CartellaExcel.readBytes(master);
-    const operai = soloCommesse ? null : (await ExcelXlsm.readWorkers(bytes)).map(w => w.name);
+    const operai = (await ExcelXlsm.readWorkers(bytes)).map(w => w.name);
     const commesse = await ExcelXlsm.readCommesse(bytes);
-    const ok = await conferma(soloCommesse ? 'Aggiornare le commesse?' : 'Aggiornare gli elenchi?', `
-      <p>Dal file <b>${esc(master)}</b>: ${soloCommesse ? '' : `<b>${operai.length}</b> operai e `}<b>${commesse.length}</b> commesse.</p>
-      ${soloCommesse ? '<p>Gli operai non cambiano.</p>' : ''}
+    const ok = await conferma('Aggiornare gli elenchi?', `
+      <p>Dal file <b>${esc(master)}</b>: <b>${operai.length}</b> operai e <b>${commesse.length}</b> commesse.</p>
       <p>I telefoni dei capisquadra li riceveranno alla prossima connessione.</p>`, 'Aggiorna');
     if (!ok) return;
     // le scelte già fatte dal responsabile restano; le voci nuove seguono la regola automatica
     const giaViste = new Set(stato.elenchi.commesse);
     const nascoste = commesse.filter(c => giaViste.has(c) ? stato.elenchi.nascoste.includes(c) : VOCE_NON_COMMESSA.test(c));
     // merge: le scelte sul viaggio per commessa non si toccano
-    await setDoc(doc(db, 'elenchi', 'correnti'), { ...(operai ? { operai } : {}), commesse, nascoste, file: master, aggiornatoIl: serverTimestamp(), aggiornatoDa: stato.utente.nome }, { merge: true });
-    avviso(soloCommesse ? 'Commesse aggiornate' : 'Elenchi aggiornati', 'ok');
-  } catch (err) { await finestra(soloCommesse ? 'Commesse non aggiornate' : 'Elenchi non aggiornati', `<p>${esc(messaggioErrore(err))}</p>`); }
-}
-$('btnAggiornaElenchi').onclick = () => aggiornaDaExcel(false);
-$('btnAggiornaElenchiConvalidati').onclick = () => aggiornaDaExcel(true);
+    await setDoc(doc(db, 'elenchi', 'correnti'), { operai, commesse, nascoste, file: master, aggiornatoIl: serverTimestamp(), aggiornatoDa: stato.utente.nome }, { merge: true });
+    avviso('Elenchi aggiornati', 'ok');
+  } catch (err) { await finestra('Elenchi non aggiornati', `<p>${esc(messaggioErrore(err))}</p>`); }
+};
 
 // ---------------------------------------------------------------- intestazione del modulo
 const ETICHETTE_INTESTAZIONE = {
