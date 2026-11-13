@@ -111,6 +111,15 @@ input, select, textarea {
 textarea { resize: vertical; min-height: 0; }
 input:focus, select:focus, textarea:focus { outline: 2px solid var(--primario); outline-offset: 1px; border-color: var(--primario); }
 input[readonly] { background: var(--evidenza); }
+/* PIN dell'accesso con l'occhio per mostrarlo */
+.pin-con-occhio { position: relative; display: block; }
+.pin-con-occhio input { width: 100%; padding-right: 52px; }
+.occhio-pin { position: absolute; top: 0; right: 0; bottom: 0; width: 48px; display: grid; place-items: center;
+  background: none; border: 0; color: var(--testo-tenue); cursor: pointer; -webkit-tap-highlight-color: transparent; }
+.occhio-pin:hover, .occhio-pin[aria-pressed="true"] { color: var(--primario); }
+.occhio-pin svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.occhio-pin .occhio-chiuso, .occhio-pin[aria-pressed="true"] .occhio-aperto { display: none; }
+.occhio-pin[aria-pressed="true"] .occhio-chiuso { display: block; }
 .griglia-2 { display: grid; grid-template-columns: 1fr; gap: 0 12px; }
 .griglia-4 { display: grid; grid-template-columns: 1fr; gap: 0 12px; }
 @media (min-width: 640px) {

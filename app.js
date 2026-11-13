@@ -339,6 +339,15 @@ async function utenteCambiato(user) {
   $('sottotitoloAccesso').textContent = 'Mod. 22.03 digitale';
 }
 
+// Occhio accanto al PIN: mostra o nasconde le cifre, per controllare di averle scritte bene
+function mostraPin(si) {
+  $('loginPassword').type = si ? 'text' : 'password';
+  $('btnOcchioPin').setAttribute('aria-pressed', si);
+  $('btnOcchioPin').title = si ? 'Nascondi il PIN' : 'Mostra il PIN';
+  $('btnOcchioPin').setAttribute('aria-label', $('btnOcchioPin').title);
+}
+$('btnOcchioPin').onclick = () => { mostraPin($('loginPassword').type === 'password'); $('loginPassword').focus(); };
+
 $('formLogin').addEventListener('submit', async e => {
   e.preventDefault();
   const codice = normCodice($('loginCodice').value);
@@ -347,6 +356,7 @@ $('formLogin').addEventListener('submit', async e => {
   try {
     await signInWithEmailAndPassword(auth, emailDi(codice), $('loginPassword').value);
     $('loginPassword').value = '';
+    mostraPin(false); // al prossimo accesso il PIN torna nascosto
   } catch (err) {
     $('loginErrore').textContent = messaggioErrore(err);
     $('loginErrore').hidden = false;
