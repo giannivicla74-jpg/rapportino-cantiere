@@ -198,7 +198,7 @@
               <div class="r-cella largo colonna"><span class="r-et">AUTOMEZZI UTILIZZATI:</span><div class="scelta-mezzi" id="rAutomezzi"></div></div>
               <div class="r-cella"><span class="r-et normale">ORARIO DI PAUSA MENSA:</span>
                 <div class="dalle-alle"><span>Dalle</span><input id="rMensaDalle" type="time"><span>Alle</span><input id="rMensaAlle" type="time"></div>
-                <button class="btn piccolo tasto-pausa" id="btnPausa" type="button">Nessuna pausa</button>
+                <button class="btn piccolo tasto-pausa" id="btnPausa" type="button" hidden>Togli pausa</button>
               </div>
             </div>
           </div>
@@ -422,6 +422,19 @@
             <div id="listaMessaggi" class="elenco"></div>
             <button class="btn" id="btnNuovoMessaggio" type="button">+ Nuovo messaggio</button>
           </details>
+        </div>
+
+        <h2>Giorni festivi</h2>
+        <div class="scheda">
+          <p class="aiuto">Sabato, domenica e festivi: le ore di lavoro proposte sono tutte straordinario (Straord. D di giorno, Straord. N di notte); il viaggio resta viaggio.
+            I festivi nazionali, Pasqua e Pasquetta comprese, l'app li conosce da sola. Qui aggiungi gli altri giorni: santo patrono, chiusure aziendali.</p>
+          <div id="listaFestivi" class="elenco"></div>
+          <form id="formFestivo" class="riga-festivo">
+            <label class="campo"><span>Giorno</span><input type="date" id="festivoData" required></label>
+            <label class="campo"><span>Nome</span><input id="festivoNome" maxlength="40" autocomplete="off" placeholder="es. Santo patrono" required></label>
+            <label class="spunta-orari"><input type="checkbox" id="festivoOgniAnno" checked> Ogni anno</label>
+            <button class="btn primario" type="submit">Aggiungi</button>
+          </form>
         </div>
 
         <h2>Area sviluppatore</h2>

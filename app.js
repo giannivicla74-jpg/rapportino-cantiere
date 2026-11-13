@@ -16,7 +16,7 @@ import {
 import {
   initializeFirestore, persistentLocalCache, persistentMultipleTabManager, doc, collection, getDoc,
   getDocFromCache, getDocFromServer, getDocs, setDoc, updateDoc, deleteDoc, onSnapshot, query, where, serverTimestamp, writeBatch,
-  waitForPendingWrites, connectFirestoreEmulator
+  waitForPendingWrites, connectFirestoreEmulator, arrayUnion, arrayRemove
 } from 'https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js';
 
 // ---------------------------------------------------------------- utilità
@@ -270,6 +270,7 @@ const stato = {
   responsabili: { voci: [], predefinito: '' }, // responsabili di commessa (dal database)
   orarioStandard: {},    // orari del pulsante "Orario standard" (dal database)
   orarioDeposito: {},    // orario speciale del pulsante con la commessa COMM.0 (dal database)
+  festivi: [],           // giorni festivi in più (santo patrono, chiusure), oltre ai nazionali (dal database)
   presenti: new Map(),   // nome -> { partenza, dalle, alle, rientro }
   automezzi: [],         // elenco dei mezzi (dal database)
   mezziScelti: new Set(), // mezzi spuntati nel rapportino in compilazione
@@ -506,6 +507,12 @@ function avviaCompilazione() {
     disegnaGestioneOrarioDeposito();
   }, () => {});
   stato.annulla.push(offD);
+  // giorni festivi in più, oltre ai nazionali: le ore di quei giorni sono tutte straordinario
+  const offF = onSnapshot(doc(db, 'elenchi', 'festivi'), snap => {
+    stato.festivi = snap.exists() ? (snap.data().voci || []) : [];
+    disegnaFestivi();
+  }, () => {});
+  stato.annulla.push(offF);
   // intestazione del modulo (testi e logo): la decide l'ufficio
   const offI = onSnapshot(doc(db, 'elenchi', 'intestazione'), snap => {
     // un'intestazione salvata con la grafica vecchia (senza ragione sociale) non vale più: si usa la nuova, tenendo il logo
@@ -722,8 +729,8 @@ $('rCommessa').addEventListener('change', () => {
   commessaDiPrima = $('rCommessa').value;
   const d = stato.orarioDeposito;
   if (eDeposito(era) && !eDeposito(commessaDiPrima) && d.mensaAlle && $('rMensaDalle').value === d.mensaDalle && $('rMensaAlle').value === d.mensaAlle) {
-    $('rMensaDalle').value = PAUSA_DALLE;
-    $('rMensaAlle').value = PAUSA_ALLE;
+    $('rMensaDalle').value = '';
+    $('rMensaAlle').value = '';
     aggiornaTastoPausa();
     salvaBozza();
   }
@@ -779,36 +786,23 @@ function riempiResponsabili() {
   sel.innerHTML = '<option value="">— Scegli —</option>' + tutte.map(n => `<option ${n === attuale ? 'selected' : ''}>${esc(n)}</option>`).join('');
 }
 
-const PAUSA_DALLE = '12:00', PAUSA_ALLE = '13:00';
+// Pausa mensa (8.1, scelta di Gianni): niente pausa già scritta, il caposquadra la scrive a mano solo se l'ha fatta.
+// Il tasto "Togli pausa" compare solo quando c'è qualcosa da cancellare (sul telefono un orario è scomodo da svuotare).
 function aggiornaTastoPausa() {
-  $('btnPausa').textContent = $('rMensaDalle').value || $('rMensaAlle').value ? 'Nessuna pausa' : `Rimetti ${PAUSA_DALLE}–${PAUSA_ALLE}`;
+  $('btnPausa').textContent = 'Togli pausa';
+  $('btnPausa').hidden = !$('rMensaDalle').value && !$('rMensaAlle').value;
 }
 $('btnPausa').onclick = () => {
-  pausaManuale = true;
-  const vuota = !$('rMensaDalle').value && !$('rMensaAlle').value;
-  $('rMensaDalle').value = vuota ? PAUSA_DALLE : '';
-  $('rMensaAlle').value = vuota ? PAUSA_ALLE : '';
+  $('rMensaDalle').value = '';
+  $('rMensaAlle').value = '';
   aggiornaTastoPausa();
   salvaBozza();
 };
-['rMensaDalle', 'rMensaAlle'].forEach(id => $(id).addEventListener('input', () => { pausaManuale = true; aggiornaTastoPausa(); }));
-// La pausa già scritta (12:00-13:00) sparisce da sola se gli orari scritti non la toccano mai (es. turno di notte)
-// e ricompare se tornano a toccarla. Se il caposquadra cambia la pausa a mano, l'app non la tocca più.
-let pausaAuto = false, pausaManuale = false;
-function pausaSecondoOrari() {
-  if (pausaManuale) return;
-  const turni = [...stato.presenti.values()].filter(o => o.dalle && o.alle);
-  if (!turni.length) return;
-  const tocca = turni.some(o => (fasciaInLavoro(PAUSA_DALLE, PAUSA_ALLE, o.dalle, o.alle) || []).length > 0);
-  const da = $('rMensaDalle'), a = $('rMensaAlle');
-  if (!tocca && da.value === PAUSA_DALLE && a.value === PAUSA_ALLE) { da.value = a.value = ''; pausaAuto = true; aggiornaTastoPausa(); }
-  else if (tocca && pausaAuto && !da.value && !a.value) { da.value = PAUSA_DALLE; a.value = PAUSA_ALLE; pausaAuto = false; aggiornaTastoPausa(); }
-}
+['rMensaDalle', 'rMensaAlle'].forEach(id => $(id).addEventListener('input', aggiornaTastoPausa));
 
 function salvaBozza() {
   if (!stato.utente) return;
-  pausaSecondoOrari();
-  const b = { commessa: $('rCommessa').value, data: $('rData').value, presenti: Object.fromEntries(stato.presenti), automezzi: [...stato.mezziScelti], autisti: Object.fromEntries(stato.autisti), caposquadra: $('rCaposquadraScelta').value, pausaAuto, pausaManuale };
+  const b = { commessa: $('rCommessa').value, data: $('rData').value, presenti: Object.fromEntries(stato.presenti), automezzi: [...stato.mezziScelti], autisti: Object.fromEntries(stato.autisti), caposquadra: $('rCaposquadraScelta').value };
   for (const [k, id] of Object.entries(CAMPI_TESTO)) b[k] = $(id).value;
   ls.set(chiaveBozza(), b);
 }
@@ -816,10 +810,6 @@ function caricaBozza() {
   const b = ls.get(chiaveBozza()) || {};
   $('rData').value = b.data || oggiISO();
   for (const [k, id] of Object.entries(CAMPI_TESTO)) $(id).value = b[k] || '';
-  // Pausa mensa già scritta per i rapportini nuovi; in una bozza si rispetta quello che c'è, anche se vuoto
-  if (!('mensaDalle' in b)) { $('rMensaDalle').value = PAUSA_DALLE; $('rMensaAlle').value = PAUSA_ALLE; }
-  pausaAuto = !!b.pausaAuto;
-  pausaManuale = !!b.pausaManuale;
   aggiornaTastoPausa();
   riempiResponsabili();
   stato.presenti = new Map(Object.entries(b.presenti || {}));
@@ -1191,6 +1181,35 @@ const viaggioDi = c => {
   const scelto = stato.elenchi.viaggi?.[c];
   return scelto !== undefined && scelto !== VIAGGIO_VERO && Number(scelto) === 0 ? 0 : VIAGGIO_VERO;
 };
+// SABATO, DOMENICA E FESTIVI (8.1, regola di Gianni): tutte le ore di lavoro sono straordinario, il viaggio resta viaggio.
+// I festivi nazionali (con Pasqua e Pasquetta) si calcolano da soli; gli altri giorni (santo patrono, chiusure)
+// li aggiunge lo sviluppatore in elenchi/festivi, voci { giorno: 'MM-GG' ogni anno oppure 'AAAA-MM-GG', nome }.
+const FESTIVI_NAZIONALI = { '01-01': 'Capodanno', '01-06': 'Epifania', '04-25': 'Festa della Liberazione', '05-01': 'Festa del Lavoro',
+  '06-02': 'Festa della Repubblica', '08-15': 'Ferragosto', '11-01': 'Ognissanti', '12-08': 'Immacolata', '12-25': 'Natale', '12-26': 'Santo Stefano' };
+// Domenica di Pasqua (calendario gregoriano, metodo di Gauss "anonimo"); restituisce 'MM-GG'
+function pasqua(anno) {
+  const a = anno % 19, b = Math.floor(anno / 100), c = anno % 100, d = Math.floor(b / 4), e = b % 4, f = Math.floor((b + 8) / 25);
+  const g = Math.floor((b - f + 1) / 3), h = (19 * a + b - d - g + 15) % 30, i = Math.floor(c / 4), k = c % 4;
+  const l = (32 + 2 * e + 2 * i - h - k) % 7, m = Math.floor((a + 11 * h + 22 * l) / 451);
+  const mese = Math.floor((h + l - 7 * m + 114) / 31), giorno = ((h + l - 7 * m + 114) % 31) + 1;
+  return `${String(mese).padStart(2, '0')}-${String(giorno).padStart(2, '0')}`;
+}
+// Perché un giorno ('AAAA-MM-GG') è da straordinario: 'Sabato', 'Domenica', il nome del festivo, oppure '' se è feriale
+function giornoSpeciale(dataISO) {
+  const m = String(dataISO || '').match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (!m) return '';
+  const anno = Number(m[1]), mg = `${m[2]}-${m[3]}`;
+  const p = pasqua(anno), dp = new Date(Date.UTC(anno, Number(p.slice(0, 2)) - 1, Number(p.slice(3)) + 1));
+  const pasquetta = `${String(dp.getUTCMonth() + 1).padStart(2, '0')}-${String(dp.getUTCDate()).padStart(2, '0')}`;
+  const mio = (stato.festivi || []).find(f => f.giorno === dataISO || f.giorno === mg);
+  if (mio) return mio.nome || 'Festivo';
+  if (FESTIVI_NAZIONALI[mg]) return FESTIVI_NAZIONALI[mg];
+  if (mg === p) return 'Pasqua';
+  if (mg === pasquetta) return 'Lunedì dell\'Angelo';
+  const dow = new Date(Date.UTC(anno, Number(m[2]) - 1, Number(m[3]))).getUTCDay();
+  return dow === 6 ? 'Sabato' : dow === 0 ? 'Domenica' : '';
+}
+
 // Ore NOTTURNE (7.9, regola di Gianni): le ore di lavoro tra le 22:00 e le 06:00.
 // - le prime 8 ore lavorate, in ordine di orario, sono ordinarie: Ord. D se cadono di giorno, Ord. N se di notte;
 // - in un turno con anche solo un minuto di notte, tutto quello che va oltre le 8 ore è Straord. N;
@@ -1235,15 +1254,20 @@ function dividiOre(riga, r, d, a) {
     const dentro = ps !== null && pe !== null ? dentroFascia(ps, pe, inizio % 1440, lavoro) : [];
     tolti = new Set(dentro.length === pausa ? dentro : Array.from({ length: pausa }, (_, i) => i));
   }
-  let orD = 0, orN = 0, oltre = 0, notte = false;
+  // sabato, domenica e festivi: tutto il lavoro è straordinario (di giorno Straord. D, di notte Straord. N)
+  const festivo = !!giornoSpeciale(r.data);
+  let orD = 0, orN = 0, stD = 0, stN = 0, oltre = 0, notte = false;
   for (let i = 0; i < lavoro; i++) {
     if (tolti.has(i)) continue;
     const ora = (inizio + i) % 1440;
     const diNotte = ora >= NOTTE_DA || ora < NOTTE_A;
     if (diNotte) notte = true;
-    if (orD + orN < 480) { if (diNotte) orN++; else orD++; } else oltre++;
+    if (festivo) { if (diNotte) stN++; else stD++; }
+    else if (orD + orN < 480) { if (diNotte) orN++; else orD++; } else oltre++;
   }
-  return { orD: orD / 60, orN: orN / 60, oltre: oltre / 60, notte, viaggio: (andata + ritorno) / 60 };
+  // nei giorni normali lo straordinario oltre le 8 ore è Straord. N se nel turno c'è notte, altrimenti Straord. D
+  if (notte) stN += oltre; else stD += oltre;
+  return { orD: orD / 60, orN: orN / 60, stD: stD / 60, stN: stN / 60, notte, viaggio: (andata + ritorno) / 60 };
 }
 function proponiOreTurno(b, t, r) {
   const riga = b.righe[t];
@@ -1264,7 +1288,8 @@ function proponiOreTurno(b, t, r) {
   if (x) {
     if (x.orD) ore.or = fmtOre(x.orD);
     if (x.orN) ore.on = fmtOre(x.orN);
-    if (x.oltre) ore[x.notte ? 'sn' : 'sd'] = fmtOre(x.oltre);
+    if (x.stD) ore.sd = fmtOre(x.stD);
+    if (x.stN) ore.sn = fmtOre(x.stN);
     if (x.viaggio > 0 && viaggioDi(riga.commessa || r.commessa) === VIAGGIO_VERO) ore.v = fmtOre(x.viaggio);
   }
   b.ore[`t${t + 1}`] = ore;
@@ -1820,7 +1845,9 @@ function calcolaRecord() {
 function aggiornaRiepilogo() {
   const { records, errori, avvisi } = calcolaRecord();
   const totale = records.reduce((s, r) => s + VOCI_ORE.reduce((x, [k]) => x + r[k], 0), 0);
+  const speciale = giornoSpeciale(stato.aperto?.dati?.data);
   $('riepilogoOre').innerHTML =
+    (speciale ? `<p class="aiuto"><b>${esc(speciale)}</b>: le ore di lavoro proposte sono tutte straordinario.</p>` : '') +
     errori.map(e => `<div class="errore">${esc(e)}</div>`).join('') +
     avvisi.map(a => `<div class="errore" style="background:var(--attenzione-sfondo);color:var(--testo)">${esc(a)}</div>`).join('') +
     (records.length && !errori.length ? `<div class="ok-box">${new Set(records.map(r => r.workerName)).size} operai · ${records.length} turni · ${fmtOre(totale)} ore in tutto</div>` : '');
@@ -2328,7 +2355,7 @@ const MESSAGGI_BASE = [{
     '3. In *Rientro in deposito* scrivete l\'ora di arrivo a destinazione, oppure l\'ora di rientro se tornate in giornata.',
     '4. Lasciate *vuoti* "Inizio lavori in cantiere" e "Fine lavori in cantiere".',
     '5. Premete *Applica a tutti i presenti*. *Non* usate il pulsante "Smart time entry".',
-    '6. *Pausa:* se vi siete fermati a mangiare, scrivete l\'orario della sosta. Se non vi siete fermati, premete *Nessuna pausa*.',
+    '6. *Pausa:* se vi siete fermati a mangiare, scrivete l\'orario della sosta. Se non vi siete fermati, lasciate vuota la pausa.',
     '7. In *Lavorazioni eseguite* scrivete: *Solo viaggio – trasferimento a …* (per esempio Milano).',
     '8. Premete *Invia*. Comparirà l\'avviso *"Mancano gli orari"*: è normale, premete *Continua lo stesso*.',
     '',
@@ -2378,6 +2405,43 @@ async function modificaMessaggio(i) {
   if (i === null) nuovi.push(voce); else nuovi[i] = voce;
   salvaMessaggi(nuovi, 'Messaggio salvato');
 }
+// ---------------------------------------------------------------- giorni festivi in più (oltre ai nazionali)
+const MESI_BREVI = ['gen', 'feb', 'mar', 'apr', 'mag', 'giu', 'lug', 'ago', 'set', 'ott', 'nov', 'dic'];
+const giornoLeggibile = g => { const p = g.split('-').map(Number); const [a, m, d] = p.length === 3 ? p : [null, ...p];
+  return `${d} ${MESI_BREVI[m - 1]}${a ? ` ${a}` : ' · ogni anno'}`; };
+function disegnaFestivi() {
+  if (!$('listaFestivi')) return;
+  const voci = [...stato.festivi].sort((x, y) => x.giorno.slice(-5).localeCompare(y.giorno.slice(-5)));
+  $('listaFestivi').innerHTML = voci.length ? voci.map(f => `<div class="voce">
+      <div class="voce-princ"><div class="voce-titolo">${esc(f.nome)}</div><div class="voce-sotto">${esc(giornoLeggibile(f.giorno))}</div></div>
+      <button class="btn piccolo pericolo" type="button" data-togli-festivo="${esc(f.giorno)}">Togli</button></div>`).join('')
+    : '<div class="nessuno">Nessun giorno in più: valgono solo sabato, domenica e i festivi nazionali.</div>';
+}
+// Si aggiunge o si toglie UNA voce (arrayUnion / arrayRemove): gli altri giorni non si toccano mai,
+// anche se l'elenco sullo schermo non è ancora arrivato dal database
+async function salvaFestivi(cambio, testoOk) {
+  try {
+    await setDoc(doc(db, 'elenchi', 'festivi'), { voci: cambio, aggiornatoIl: serverTimestamp(), aggiornatoDa: stato.utente.nome }, { merge: true });
+    avviso(testoOk, 'ok');
+  } catch (err) { avviso(messaggioErrore(err), 'errore'); }
+}
+$('formFestivo').addEventListener('submit', e => {
+  e.preventDefault();
+  const data = $('festivoData').value, nome = $('festivoNome').value.trim().replace(/\s+/g, ' ');
+  if (!data || !nome) return;
+  const giorno = $('festivoOgniAnno').checked ? data.slice(5) : data;
+  if (stato.festivi.some(f => f.giorno === giorno)) { avviso('Questo giorno è già nell\'elenco', 'errore'); return; }
+  salvaFestivi(arrayUnion({ giorno, nome }), `Aggiunto: ${nome}`);
+  $('festivoData').value = ''; $('festivoNome').value = '';
+});
+$('listaFestivi').addEventListener('click', async e => {
+  const g = e.target.dataset.togliFestivo;
+  if (g === undefined) return;
+  const f = stato.festivi.find(x => x.giorno === g);
+  if (!await conferma('Togliere il giorno festivo?', `<p><b>${esc(f?.nome || '')}</b> (${esc(giornoLeggibile(g))}) tornerà un giorno normale.</p>`, 'Togli')) return;
+  if (f) salvaFestivi(arrayRemove(f), 'Giorno tolto');
+});
+
 $('messaggi').addEventListener('toggle', () => { if ($('messaggi').open) caricaMessaggi(); });
 $('btnNuovoMessaggio').onclick = () => modificaMessaggio(null);
 $('listaMessaggi').addEventListener('click', async e => {

@@ -685,3 +685,7 @@ button.o-p { cursor: pointer; -webkit-tap-highlight-color: transparent; }
 .testo-messaggio { white-space: pre-wrap; overflow-wrap: anywhere; font-size: .9rem; margin-top: 8px; padding: 10px; border-left: 3px solid var(--bordo); }
 .azioni-messaggio { display: flex; flex-wrap: wrap; gap: 8px; }
 .campo-promemoria { width: 100%; font: inherit; font-size: .9rem; padding: 10px; border: 1px solid var(--bordo); border-radius: 8px; background: var(--carta); color: var(--testo); }
+/* area sviluppatore: aggiungere un giorno festivo */
+.riga-festivo { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 0 12px; margin-top: 12px; }
+.riga-festivo .campo { flex: 1 1 160px; }
+.riga-festivo .spunta-orari, .riga-festivo .btn { margin-bottom: 12px; }
