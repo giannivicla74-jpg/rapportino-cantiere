@@ -320,7 +320,7 @@
 
         <h2>Orario standard</h2>
         <div class="scheda">
-          <p>Nel rapportino il caposquadra trova un pulsante con questo nome: con un tocco questi orari vanno a tutti i presenti, e si possono sempre cambiare riga per riga. Lasciando vuoti tutti gli orari, il pulsante non compare.</p>
+          <p>Nel rapportino il caposquadra trova un pulsante con questo nome: con un tocco questi orari vanno a tutti i presenti e si scrive anche la pausa; tutto si può sempre cambiare. Lasciando vuota la pausa, il pulsante scrive solo gli orari. Lasciando vuoti tutti gli orari, il pulsante non compare.</p>
           <form id="formOrarioStandard">
             <label class="campo"><span>Nome del pulsante</span><input data-standard="nome" maxlength="40" autocomplete="off"></label>
             <div class="griglia-2">
@@ -328,6 +328,8 @@
               <label class="campo"><span>Orario inizio lavori</span><input type="time" data-standard="dalle"></label>
               <label class="campo"><span>Orario fine lavori</span><input type="time" data-standard="alle"></label>
               <label class="campo"><span>Orario rientro in deposito</span><input type="time" data-standard="rientro"></label>
+              <label class="campo"><span>Pausa dalle</span><input type="time" data-standard="mensaDalle"></label>
+              <label class="campo"><span>Pausa alle</span><input type="time" data-standard="mensaAlle"></label>
             </div>
             <button class="btn primario" type="submit">Salva orario standard</button>
           </form>

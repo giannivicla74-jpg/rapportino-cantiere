@@ -496,7 +496,8 @@ function avviaCompilazione() {
   stato.annulla.push(offR);
   // orario standard: lo imposta lo sviluppatore; finché non lo salva valgono gli orari di partenza
   const offO = onSnapshot(doc(db, 'elenchi', 'orarioStandard'), snap => {
-    stato.orarioStandard = snap.exists() ? snap.data() : { ...ORARIO_STANDARD_BASE };
+    // (8.2) anche la pausa: un orario salvato prima, senza i campi della pausa, usa 12:00-13:00; salvata vuota resta vuota
+    stato.orarioStandard = snap.exists() ? { mensaDalle: ORARIO_STANDARD_BASE.mensaDalle, mensaAlle: ORARIO_STANDARD_BASE.mensaAlle, ...snap.data() } : { ...ORARIO_STANDARD_BASE };
     aggiornaPulsanteStandard();
     disegnaGestioneOrarioStandard();
   }, () => {});
@@ -699,7 +700,7 @@ $('btnApplicaTutti').onclick = applicaOrariATutti;
 
 // Orario standard: si imposta nell'area sviluppatore (elenchi/orarioStandard). Il pulsante riempie il riquadro
 // e applica subito gli orari ai presenti; le righe degli operai restano sempre modificabili.
-const ORARIO_STANDARD_BASE = { nome: 'Orario standard 8 & 1', partenza: '07:00', dalle: '07:30', alle: '16:30', rientro: '17:00' };
+const ORARIO_STANDARD_BASE = { nome: 'Orario standard 8 & 1', partenza: '07:00', dalle: '07:30', alle: '16:30', rientro: '17:00', mensaDalle: '12:00', mensaAlle: '13:00' };
 // Solo per il deposito COMM.0 c'è un orario speciale (elenchi/orarioDeposito), che comprende anche la pausa.
 const ORARIO_DEPOSITO_BASE = { nome: 'Orario magazzino 8 & 1', partenza: '06:30', dalle: '07:00', alle: '17:00', rientro: '17:30', mensaDalle: '12:00', mensaAlle: '14:00' };
 const eDeposito = c => /^COMM\.0$/i.test(String(c || '').trim());
@@ -715,7 +716,8 @@ function aggiornaPulsanteStandard() {
 $('btnOrarioStandard').onclick = () => {
   const s = orarioDelPulsante();
   document.querySelectorAll('[data-tutti]').forEach(inp => { inp.value = s[inp.dataset.tutti] || ''; });
-  if (s === stato.orarioDeposito) {
+  // la pausa: quella dell'orario magazzino (anche vuota) oppure quella dell'orario standard, se è stata impostata (8.2)
+  if (s === stato.orarioDeposito || s.mensaDalle || s.mensaAlle) {
     $('rMensaDalle').value = s.mensaDalle || '';
     $('rMensaAlle').value = s.mensaAlle || '';
     aggiornaTastoPausa();
