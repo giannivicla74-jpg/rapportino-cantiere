@@ -499,6 +499,8 @@ function avviaCompilazione() {
     // (8.2) anche la pausa: un orario salvato prima, senza i campi della pausa, usa 12:00-13:00; salvata vuota resta vuota
     stato.orarioStandard = snap.exists() ? { mensaDalle: ORARIO_STANDARD_BASE.mensaDalle, mensaAlle: ORARIO_STANDARD_BASE.mensaAlle, ...snap.data() } : { ...ORARIO_STANDARD_BASE };
     aggiornaPulsanteStandard();
+    riallineaPausa();
+    aggiornaTastoPausa(); // la scritta "Metti pausa …" segue la pausa scelta nell'area sviluppatore
     disegnaGestioneOrarioStandard();
   }, () => {});
   stato.annulla.push(offO);
@@ -731,8 +733,9 @@ $('rCommessa').addEventListener('change', () => {
   commessaDiPrima = $('rCommessa').value;
   const d = stato.orarioDeposito;
   if (eDeposito(era) && !eDeposito(commessaDiPrima) && d.mensaAlle && $('rMensaDalle').value === d.mensaDalle && $('rMensaAlle').value === d.mensaAlle) {
-    $('rMensaDalle').value = '';
-    $('rMensaAlle').value = '';
+    const p = pausaPredefinita();
+    $('rMensaDalle').value = p.da;
+    $('rMensaAlle').value = p.a;
     aggiornaTastoPausa();
     salvaBozza();
   }
@@ -790,21 +793,56 @@ function riempiResponsabili() {
 
 // Pausa mensa (8.1, scelta di Gianni): niente pausa già scritta, il caposquadra la scrive a mano solo se l'ha fatta.
 // Il tasto "Togli pausa" compare solo quando c'è qualcosa da cancellare (sul telefono un orario è scomodo da svuotare).
+// Pausa mensa (8.2, scelta di Gianni): il rapportino nuovo parte con la pausa dell'"Orario standard" (area sviluppatore,
+// di partenza 12:00-13:00). Se gli orari scritti non la toccano mai (es. turno di notte) sparisce da sola, e ricompare se
+// tornano a toccarla. Da lì decide il caposquadra: il tasto la toglie o la rimette; se la cambia a mano l'app non la tocca più.
+const pausaPredefinita = () => {
+  const s = 'mensaDalle' in stato.orarioStandard ? stato.orarioStandard : ORARIO_STANDARD_BASE;
+  return { da: s.mensaDalle || '', a: s.mensaAlle || '' };
+};
 function aggiornaTastoPausa() {
-  $('btnPausa').textContent = 'Togli pausa';
-  $('btnPausa').hidden = !$('rMensaDalle').value && !$('rMensaAlle').value;
+  const p = pausaPredefinita(), scritta = $('rMensaDalle').value || $('rMensaAlle').value;
+  $('btnPausa').textContent = scritta ? 'Nessuna pausa' : `Metti pausa ${p.da}–${p.a}`;
+  $('btnPausa').hidden = !scritta && !(p.da && p.a);
 }
 $('btnPausa').onclick = () => {
-  $('rMensaDalle').value = '';
-  $('rMensaAlle').value = '';
+  pausaManuale = true;
+  const p = pausaPredefinita(), scritta = $('rMensaDalle').value || $('rMensaAlle').value;
+  $('rMensaDalle').value = scritta ? '' : p.da;
+  $('rMensaAlle').value = scritta ? '' : p.a;
   aggiornaTastoPausa();
   salvaBozza();
 };
-['rMensaDalle', 'rMensaAlle'].forEach(id => $(id).addEventListener('input', aggiornaTastoPausa));
+['rMensaDalle', 'rMensaAlle'].forEach(id => $(id).addEventListener('input', () => { pausaManuale = true; aggiornaTastoPausa(); }));
+let pausaAuto = false, pausaManuale = false;
+// Pausa già scritta all'apertura di un rapportino nuovo: se poi arriva dal database una pausa diversa
+// (l'app l'aveva scritta prima di averla scaricata), si aggiorna, ma solo se nessuno l'ha toccata
+let pausaScritta = null;
+function riallineaPausa() {
+  const p = pausaPredefinita();
+  if (!pausaScritta || pausaManuale || pausaAuto) return;
+  if ($('rMensaDalle').value !== pausaScritta.da || $('rMensaAlle').value !== pausaScritta.a) return;
+  $('rMensaDalle').value = p.da; $('rMensaAlle').value = p.a;
+  pausaScritta = p;
+  aggiornaTastoPausa();
+  salvaBozza();
+}
+function pausaSecondoOrari() {
+  if (pausaManuale) return;
+  const p = pausaPredefinita();
+  if (!p.da || !p.a) return;
+  const turni = [...stato.presenti.values()].filter(o => o.dalle && o.alle);
+  if (!turni.length) return;
+  const tocca = turni.some(o => (fasciaInLavoro(p.da, p.a, o.dalle, o.alle) || []).length > 0);
+  const da = $('rMensaDalle'), a = $('rMensaAlle');
+  if (!tocca && da.value === p.da && a.value === p.a) { da.value = a.value = ''; pausaAuto = true; aggiornaTastoPausa(); }
+  else if (tocca && pausaAuto && !da.value && !a.value) { da.value = p.da; a.value = p.a; pausaAuto = false; aggiornaTastoPausa(); }
+}
 
 function salvaBozza() {
   if (!stato.utente) return;
-  const b = { commessa: $('rCommessa').value, data: $('rData').value, presenti: Object.fromEntries(stato.presenti), automezzi: [...stato.mezziScelti], autisti: Object.fromEntries(stato.autisti), caposquadra: $('rCaposquadraScelta').value };
+  pausaSecondoOrari();
+  const b = { commessa: $('rCommessa').value, data: $('rData').value, presenti: Object.fromEntries(stato.presenti), automezzi: [...stato.mezziScelti], autisti: Object.fromEntries(stato.autisti), caposquadra: $('rCaposquadraScelta').value, pausaAuto, pausaManuale };
   for (const [k, id] of Object.entries(CAMPI_TESTO)) b[k] = $(id).value;
   ls.set(chiaveBozza(), b);
 }
@@ -812,6 +850,11 @@ function caricaBozza() {
   const b = ls.get(chiaveBozza()) || {};
   $('rData').value = b.data || oggiISO();
   for (const [k, id] of Object.entries(CAMPI_TESTO)) $(id).value = b[k] || '';
+  // rapportino nuovo: pausa già scritta; in una bozza si rispetta quello che c'è, anche se vuoto
+  if (!('mensaDalle' in b)) { const p = pausaPredefinita(); $('rMensaDalle').value = p.da; $('rMensaAlle').value = p.a; pausaScritta = p; }
+  else pausaScritta = null;
+  pausaAuto = !!b.pausaAuto;
+  pausaManuale = !!b.pausaManuale;
   aggiornaTastoPausa();
   riempiResponsabili();
   stato.presenti = new Map(Object.entries(b.presenti || {}));
