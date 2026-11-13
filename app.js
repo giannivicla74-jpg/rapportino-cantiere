@@ -1165,27 +1165,64 @@ const viaggioDi = c => {
   const scelto = stato.elenchi.viaggi?.[c];
   return scelto !== undefined && scelto !== VIAGGIO_VERO && Number(scelto) === 0 ? 0 : VIAGGIO_VERO;
 };
-// Ore di un tratto di viaggio; 0 se manca un orario o se gli orari sono al contrario (es. entrata dopo l'inizio lavori)
-const tratto = (da, a) => { const h = da && a ? differenzaOre(da, a) : 0; return h > 0 && h < 12 ? h : 0; };
+// Ore NOTTURNE (7.9, regola di Gianni): le ore di lavoro tra le 22:00 e le 06:00.
+// - le prime 8 ore lavorate, in ordine di orario, sono ordinarie: Ord. D se cadono di giorno, Ord. N se di notte;
+// - in un turno con anche solo un minuto di notte, tutto quello che va oltre le 8 ore è Straord. N;
+// - un turno con ore notturne va TUTTO nel 2° turno (ore di giorno, di notte e viaggio): il 1° turno resta vuoto.
+// es. 22:00-06:00 → Ord. N 8; 18:00-02:00 → Ord. D 4 + Ord. N 4; 22:00-08:00 → Ord. N 8 + Straord. N 2.
+const NOTTE_DA = 22 * 60, NOTTE_A = 6 * 60;
+const minuti = hhmm => { const h = orarioInOre(hhmm); return h === null ? null : Math.round(h * 60); };
+const rigaVuota = rg => !rg.entrata && !rg.uscita;
+// Divide le ore di una riga (entrata, uscita, pausa) in viaggio, ordinarie e straordinarie di giorno e di notte.
+// inizio e fine lavori sono quelli della pagina 1; contano solo se cadono tra entrata e uscita della riga
+// (così una riga scritta a mano, es. un 2° turno del pomeriggio, non prende un viaggio che non c'entra).
+function dividiOre(riga, r, d, a) {
+  const e = minuti(riga.entrata), u = minuti(riga.uscita);
+  if (e === null || u === null) return null;
+  const durata = (u - e + 1440) % 1440;
+  if (!durata) return null;
+  const dentro = x => x !== null && (x - e + 1440) % 1440 <= durata;
+  const md = minuti(d), ma = minuti(a);
+  let andata = dentro(md) ? (md - e + 1440) % 1440 : 0;
+  let ritorno = dentro(ma) ? (u - ma + 1440) % 1440 : 0;
+  if (andata + ritorno >= durata) andata = ritorno = 0;
+  const inizio = e + andata, lavoro = durata - andata - ritorno;
+  // pausa: si toglie dove cade davvero (es. 02:00-03:00 toglie un'ora di notte); se non si sa quando, all'inizio del lavoro
+  const pausa = Math.round(num(riga.pausa) * 60);
+  const ps = minuti(r.mensaDalle), pe = minuti(r.mensaAlle);
+  let pDa = 0;
+  if (pausa && ps !== null && pe !== null && (pe - ps + 1440) % 1440 === pausa && (ps - inizio + 1440) % 1440 + pausa <= lavoro) pDa = (ps - inizio + 1440) % 1440;
+  let orD = 0, orN = 0, oltre = 0, notte = false;
+  for (let i = 0; i < lavoro; i++) {
+    if (pausa && i >= pDa && i < pDa + pausa) continue;
+    const ora = (inizio + i) % 1440;
+    const diNotte = ora >= NOTTE_DA || ora < NOTTE_A;
+    if (diNotte) notte = true;
+    if (orD + orN < 480) { if (diNotte) orN++; else orD++; } else oltre++;
+  }
+  return { orD: orD / 60, orN: orN / 60, oltre: oltre / 60, notte, viaggio: (andata + ritorno) / 60 };
+}
 function proponiOreTurno(b, t, r) {
   const riga = b.righe[t];
-  const totale = differenzaOre(riga.entrata, riga.uscita) ? Math.max(0, differenzaOre(riga.entrata, riga.uscita) - num(riga.pausa)) : 0;
   const ore = oreVuote();
-  if (totale > 0) {
-    let viaggio = 0;
-    // inizio e fine lavori degli operai di questo blocco (un blocco senza operai del caposquadra guarda tutto il rapportino);
-    // il viaggio si misura dall'entrata e dall'uscita della riga, così si ricalcola anche se l'ufficio le cambia
-    if (t === 0) {
-      const delBlocco = (r.operai || []).filter(o => b.operai.includes(o.nome));
-      const gruppo = delBlocco.length ? { operai: delBlocco } : r;
-      const d = orarioComune(gruppo, 'dalle'), a = orarioComune(gruppo, 'alle');
-      const v = tratto(riga.entrata, d) + tratto(a, riga.uscita);
-      if (v < totale) viaggio = v;
-    }
-    const lavoro = totale - viaggio;
-    ore.or = fmtOre(Math.min(8, lavoro));
-    if (lavoro > 8) ore.sd = fmtOre(lavoro - 8);
-    if (viaggio > 0 && viaggioDi(riga.commessa || r.commessa) === VIAGGIO_VERO) ore.v = fmtOre(viaggio);
+  // inizio e fine lavori degli operai di questo blocco (un blocco senza operai del caposquadra guarda tutto il rapportino);
+  // il viaggio si misura dall'entrata e dall'uscita della riga, così si ricalcola anche se l'ufficio le cambia
+  const delBlocco = (r.operai || []).filter(o => b.operai.includes(o.nome));
+  const gruppo = delBlocco.length ? { operai: delBlocco } : r;
+  const x = dividiOre(riga, r, orarioComune(gruppo, 'dalle'), orarioComune(gruppo, 'alle'));
+  // turno con ore notturne scritto nel 1° turno: passa tutto nel 2° turno (se è libero)
+  if (x?.notte && t === 0 && rigaVuota(b.righe[1])) {
+    b.righe[1] = { ...riga };
+    b.righe[0] = { commessa: '', entrata: '', uscita: '', pausa: '' };
+    b.ore.t1 = oreVuote();
+    proponiOreTurno(b, 1, r);
+    return;
+  }
+  if (x) {
+    if (x.orD) ore.or = fmtOre(x.orD);
+    if (x.orN) ore.on = fmtOre(x.orN);
+    if (x.oltre) ore[x.notte ? 'sn' : 'sd'] = fmtOre(x.oltre);
+    if (x.viaggio > 0 && viaggioDi(riga.commessa || r.commessa) === VIAGGIO_VERO) ore.v = fmtOre(x.viaggio);
   }
   b.ore[`t${t + 1}`] = ore;
 }
@@ -1193,7 +1230,10 @@ function proponiOreTurno(b, t, r) {
 function bloccoIniziale(r) {
   const tutti = (r.operai || []).map(o => o.nome);
   const comune = k => orarioComune(r, k);
-  const pausa = differenzaOre(r.mensaDalle, r.mensaAlle);
+  // la pausa conta solo se cade dentro l'orario di lavoro (es. la 12:00-13:00 già scritta non si toglie a chi lavora di notte)
+  let pausa = differenzaOre(r.mensaDalle, r.mensaAlle);
+  const [md, ma, ps] = [comune('dalle'), comune('alle'), r.mensaDalle].map(minuti);
+  if (pausa && md !== null && ma !== null && ps !== null && (ps - md + 1440) % 1440 + pausa * 60 > (ma - md + 1440) % 1440) pausa = 0;
   // con la commessa su "Nessuno" il viaggio non conta: entrata e uscita sono gli orari in cantiere, così i totali tornano
   const conViaggio = viaggioDi(r.commessa) === VIAGGIO_VERO;
   const b = {
