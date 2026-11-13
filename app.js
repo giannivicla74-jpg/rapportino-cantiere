@@ -774,17 +774,31 @@ function aggiornaTastoPausa() {
   $('btnPausa').textContent = $('rMensaDalle').value || $('rMensaAlle').value ? 'Nessuna pausa' : `Rimetti ${PAUSA_DALLE}–${PAUSA_ALLE}`;
 }
 $('btnPausa').onclick = () => {
+  pausaManuale = true;
   const vuota = !$('rMensaDalle').value && !$('rMensaAlle').value;
   $('rMensaDalle').value = vuota ? PAUSA_DALLE : '';
   $('rMensaAlle').value = vuota ? PAUSA_ALLE : '';
   aggiornaTastoPausa();
   salvaBozza();
 };
-['rMensaDalle', 'rMensaAlle'].forEach(id => $(id).addEventListener('input', aggiornaTastoPausa));
+['rMensaDalle', 'rMensaAlle'].forEach(id => $(id).addEventListener('input', () => { pausaManuale = true; aggiornaTastoPausa(); }));
+// La pausa già scritta (12:00-13:00) sparisce da sola se gli orari scritti non la toccano mai (es. turno di notte)
+// e ricompare se tornano a toccarla. Se il caposquadra cambia la pausa a mano, l'app non la tocca più.
+let pausaAuto = false, pausaManuale = false;
+function pausaSecondoOrari() {
+  if (pausaManuale) return;
+  const turni = [...stato.presenti.values()].filter(o => o.dalle && o.alle);
+  if (!turni.length) return;
+  const tocca = turni.some(o => (fasciaInLavoro(PAUSA_DALLE, PAUSA_ALLE, o.dalle, o.alle) || []).length > 0);
+  const da = $('rMensaDalle'), a = $('rMensaAlle');
+  if (!tocca && da.value === PAUSA_DALLE && a.value === PAUSA_ALLE) { da.value = a.value = ''; pausaAuto = true; aggiornaTastoPausa(); }
+  else if (tocca && pausaAuto && !da.value && !a.value) { da.value = PAUSA_DALLE; a.value = PAUSA_ALLE; pausaAuto = false; aggiornaTastoPausa(); }
+}
 
 function salvaBozza() {
   if (!stato.utente) return;
-  const b = { commessa: $('rCommessa').value, data: $('rData').value, presenti: Object.fromEntries(stato.presenti), automezzi: [...stato.mezziScelti], autisti: Object.fromEntries(stato.autisti), caposquadra: $('rCaposquadraScelta').value };
+  pausaSecondoOrari();
+  const b = { commessa: $('rCommessa').value, data: $('rData').value, presenti: Object.fromEntries(stato.presenti), automezzi: [...stato.mezziScelti], autisti: Object.fromEntries(stato.autisti), caposquadra: $('rCaposquadraScelta').value, pausaAuto, pausaManuale };
   for (const [k, id] of Object.entries(CAMPI_TESTO)) b[k] = $(id).value;
   ls.set(chiaveBozza(), b);
 }
@@ -794,6 +808,8 @@ function caricaBozza() {
   for (const [k, id] of Object.entries(CAMPI_TESTO)) $(id).value = b[k] || '';
   // Pausa mensa già scritta per i rapportini nuovi; in una bozza si rispetta quello che c'è, anche se vuoto
   if (!('mensaDalle' in b)) { $('rMensaDalle').value = PAUSA_DALLE; $('rMensaAlle').value = PAUSA_ALLE; }
+  pausaAuto = !!b.pausaAuto;
+  pausaManuale = !!b.pausaManuale;
   aggiornaTastoPausa();
   riempiResponsabili();
   stato.presenti = new Map(Object.entries(b.presenti || {}));
@@ -1173,6 +1189,19 @@ const viaggioDi = c => {
 const NOTTE_DA = 22 * 60, NOTTE_A = 6 * 60;
 const minuti = hhmm => { const h = orarioInOre(hhmm); return h === null ? null : Math.round(h * 60); };
 const rigaVuota = rg => !rg.entrata && !rg.uscita;
+// Minuti di una fascia (es. la pausa, da ps a pe) che cadono nel lavoro (da inizio, per lungo minuti), anche a cavallo
+// della mezzanotte: restituisce la posizione di ognuno dall'inizio del lavoro
+function dentroFascia(ps, pe, inizio, lungo) {
+  const fuori = [], lungP = (pe - ps + 1440) % 1440;
+  for (let i = 0; i < lungP; i++) { const off = ((ps + i) % 1440 - inizio + 1440) % 1440; if (off < lungo) fuori.push(off); }
+  return fuori;
+}
+// Parte della pausa (da-a) che cade tra inizio e fine lavori; null se manca un orario
+function fasciaInLavoro(pDa, pA, lDa, lA) {
+  const [ps, pe, ld, la] = [pDa, pA, lDa, lA].map(minuti);
+  if ([ps, pe, ld, la].includes(null)) return null;
+  return dentroFascia(ps, pe, ld, (la - ld + 1440) % 1440);
+}
 // Divide le ore di una riga (entrata, uscita, pausa) in viaggio, ordinarie e straordinarie di giorno e di notte.
 // inizio e fine lavori sono quelli della pagina 1; contano solo se cadono tra entrata e uscita della riga
 // (così una riga scritta a mano, es. un 2° turno del pomeriggio, non prende un viaggio che non c'entra).
@@ -1187,14 +1216,18 @@ function dividiOre(riga, r, d, a) {
   let ritorno = dentro(ma) ? (u - ma + 1440) % 1440 : 0;
   if (andata + ritorno >= durata) andata = ritorno = 0;
   const inizio = e + andata, lavoro = durata - andata - ritorno;
-  // pausa: si toglie dove cade davvero (es. 02:00-03:00 toglie un'ora di notte); se non si sa quando, all'inizio del lavoro
+  // pausa: si toglie dove cade davvero, solo la parte dentro il lavoro (es. 02:00-03:00 toglie un'ora di notte);
+  // se il numero della riga è stato cambiato a mano e non si sa quando cade, si toglie dall'inizio del lavoro
   const pausa = Math.round(num(riga.pausa) * 60);
-  const ps = minuti(r.mensaDalle), pe = minuti(r.mensaAlle);
-  let pDa = 0;
-  if (pausa && ps !== null && pe !== null && (pe - ps + 1440) % 1440 === pausa && (ps - inizio + 1440) % 1440 + pausa <= lavoro) pDa = (ps - inizio + 1440) % 1440;
+  let tolti = new Set();
+  if (pausa) {
+    const ps = minuti(r.mensaDalle), pe = minuti(r.mensaAlle);
+    const dentro = ps !== null && pe !== null ? dentroFascia(ps, pe, inizio % 1440, lavoro) : [];
+    tolti = new Set(dentro.length === pausa ? dentro : Array.from({ length: pausa }, (_, i) => i));
+  }
   let orD = 0, orN = 0, oltre = 0, notte = false;
   for (let i = 0; i < lavoro; i++) {
-    if (pausa && i >= pDa && i < pDa + pausa) continue;
+    if (tolti.has(i)) continue;
     const ora = (inizio + i) % 1440;
     const diNotte = ora >= NOTTE_DA || ora < NOTTE_A;
     if (diNotte) notte = true;
@@ -1230,10 +1263,11 @@ function proponiOreTurno(b, t, r) {
 function bloccoIniziale(r) {
   const tutti = (r.operai || []).map(o => o.nome);
   const comune = k => orarioComune(r, k);
-  // la pausa conta solo se cade dentro l'orario di lavoro (es. la 12:00-13:00 già scritta non si toglie a chi lavora di notte)
+  // della pausa conta solo la parte dentro l'orario di lavoro (es. lavori 07:30-12:30 con pausa 12:00-13:00 → mezz'ora;
+  // la 12:00-13:00 rimasta scritta in un turno di notte → niente)
   let pausa = differenzaOre(r.mensaDalle, r.mensaAlle);
-  const [md, ma, ps] = [comune('dalle'), comune('alle'), r.mensaDalle].map(minuti);
-  if (pausa && md !== null && ma !== null && ps !== null && (ps - md + 1440) % 1440 + pausa * 60 > (ma - md + 1440) % 1440) pausa = 0;
+  const parte = fasciaInLavoro(r.mensaDalle, r.mensaAlle, comune('dalle'), comune('alle'));
+  if (pausa && parte) pausa = parte.length / 60;
   // con la commessa su "Nessuno" il viaggio non conta: entrata e uscita sono gli orari in cantiere, così i totali tornano
   const conViaggio = viaggioDi(r.commessa) === VIAGGIO_VERO;
   const b = {
