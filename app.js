@@ -16,7 +16,7 @@ import {
 import {
   initializeFirestore, persistentLocalCache, persistentMultipleTabManager, doc, collection, getDoc,
   getDocFromCache, getDocFromServer, getDocs, setDoc, updateDoc, deleteDoc, onSnapshot, query, where, serverTimestamp, writeBatch,
-  waitForPendingWrites, connectFirestoreEmulator, arrayUnion, arrayRemove
+  waitForPendingWrites, connectFirestoreEmulator, arrayUnion, arrayRemove, runTransaction
 } from 'https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js';
 
 // ---------------------------------------------------------------- utilità
@@ -2093,6 +2093,63 @@ function percorsoHTML(cartella, file, giorno, righe = []) {
 
 const etichettaTurno =v => [v.commessa || '(senza commessa)', ...VOCI_ORE.filter(([k]) => v[k]).map(([k, et]) => `${et} ${fmtOre(v[k])}`)].join(' · ');
 
+// ---------------------------------------------------------------- lucchetto sul file Excel del mese (8.3)
+// Due responsabili che convalidano insieme sullo stesso file perdevano ore: chi arriva secondo leggeva il file prima che
+// il primo lo riscrivesse. Ora chi scrive mette un lucchetto in lucchetti/excel-AAAA-MM; gli altri aspettano.
+// Il lucchetto scade da solo dopo 5 minuti (PC bloccato, rete caduta). Le regole del database lo fanno rispettare.
+// Vale per ogni finestra dell'app (anche due schede dello stesso responsabile), grazie a "sessione".
+const LUCCHETTO_MINUTI = 5;
+const SESSIONE = `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+class ExcelOccupato extends Error {}
+const refLucchetto = (anno, mese) => doc(db, 'lucchetti', `excel-${anno}-${String(mese).padStart(2, '0')}`);
+// Prende il lucchetto del mese; restituisce il suo "giro", che serve per controllarlo prima di scrivere
+async function prendiLucchetto(anno, mese) {
+  const ref = refLucchetto(anno, mese);
+  const giro = `${SESSIONE}-${Date.now().toString(36)}`;
+  try {
+    await runTransaction(db, async tx => {
+      const s = await tx.get(ref);
+      if (s.exists()) {
+        const d = s.data(), dal = d.dal?.toMillis?.() ?? 0;
+        if (d.sessione !== SESSIONE && Date.now() - dal < LUCCHETTO_MINUTI * 60000) throw new ExcelOccupato(`${d.nome || 'Un altro responsabile'}|${dal}`);
+      }
+      tx.set(ref, { uid: stato.utente.uid, nome: stato.utente.nome, sessione: SESSIONE, giro, dal: serverTimestamp() });
+    });
+  } catch (err) {
+    if (err instanceof ExcelOccupato) {
+      const [nome, dal] = err.message.split('|');
+      throw new ExcelOccupato(`<b>${esc(nome)}</b> sta scrivendo sul file di <b>${MESI[mese - 1]} ${anno}</b>${Number(dal) ? ` (dalle ${new Date(Number(dal)).toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' })})` : ''}.`);
+    }
+    // le regole rifiutano: c'è un lucchetto valido di un altro (es. orologio del PC diverso da quello del server)
+    if (err.code === 'permission-denied') throw new ExcelOccupato(`Un altro responsabile sta scrivendo sul file di <b>${MESI[mese - 1]} ${anno}</b>.`);
+    if (['unavailable', 'failed-precondition', 'deadline-exceeded'].includes(err.code)) throw new Error('serve la connessione a internet per convalidare (per non scrivere su Excel insieme a un altro responsabile)');
+    throw err;
+  }
+  return giro;
+}
+// Subito prima di scrivere: il lucchetto deve essere ancora nostro (se è scaduto mentre una finestra aspettava,
+// un altro potrebbe aver già scritto e il file letto prima non è più quello giusto). Intanto lo rinnova.
+async function confermaLucchetto(anno, mese, giro) {
+  const ref = refLucchetto(anno, mese);
+  await runTransaction(db, async tx => {
+    const s = await tx.get(ref);
+    if (!s.exists() || s.data().giro !== giro) throw new ExcelOccupato(`Nel frattempo un altro responsabile ha scritto sul file di <b>${MESI[mese - 1]} ${anno}</b>.`);
+    tx.update(ref, { dal: serverTimestamp() });
+  }).catch(err => {
+    if (err instanceof ExcelOccupato) throw err;
+    throw new ExcelOccupato(`Il lucchetto sul file di <b>${MESI[mese - 1]} ${anno}</b> è scaduto.`);
+  });
+}
+async function lasciaLucchetto(anno, mese, giro) {
+  const ref = refLucchetto(anno, mese);
+  try {
+    await runTransaction(db, async tx => {
+      const s = await tx.get(ref);
+      if (s.exists() && s.data().giro === giro) tx.delete(ref);
+    });
+  } catch (_) { /* se non si riesce a togliere, scade da solo dopo 5 minuti */ }
+}
+
 $('btnConvalida').onclick = async () => {
   const { dati } = stato.aperto;
   const { records, errori, avvisi } = calcolaRecord();
@@ -2104,8 +2161,12 @@ $('btnConvalida').onclick = async () => {
   btn.disabled = true;
   const testoBtn = btn.textContent;
   btn.textContent = 'Scrittura su Excel in corso…';
+  let lucchetto = null, annoL = 0, meseL = 0;
   try {
     const [anno, mese, giorno] = dati.data.split('-').map(Number);
+    // nessun altro deve scrivere sul file di questo mese finché non abbiamo finito
+    lucchetto = await prendiLucchetto(anno, mese);
+    annoL = anno; meseL = mese;
     const fileName = await fileDelMese(anno, mese);
     if (!fileName) return;
     if (await CartellaExcel.isOpenInExcel(fileName)) throw new Error(`il file ${fileName} è aperto in Excel: chiudilo e riprova`);
@@ -2135,6 +2196,8 @@ $('btnConvalida').onclick = async () => {
     }
 
     if (daScrivere.length) {
+      // il lucchetto è ancora nostro? (una finestra lasciata aperta troppo a lungo lo fa scadere)
+      await confermaLucchetto(anno, mese, lucchetto);
       // copia di sicurezza alla prima scrittura del giorno per ogni file
       if (!await CartellaExcel.hasBackupToday(fileName)) {
         try { await CartellaExcel.datedBackup(fileName, bytes); }
@@ -2143,6 +2206,9 @@ $('btnConvalida').onclick = async () => {
       const risultato = await ExcelXlsm.writePresenze(bytes, giorno, daScrivere);
       await CartellaExcel.writeBytes(fileName, risultato.bytes);
     }
+    // Excel è scritto: il file torna libero subito, prima delle finestre che aspettano un clic
+    await lasciaLucchetto(anno, mese, lucchetto);
+    lucchetto = null;
     // riga Excel di ogni turno scritto (stessa formula di excel.js: 69 righe per giorno, 2 per operaio)
     const righe = daScrivere.map(r => ({ nome: r.workerName, turno: r.turno, riga: 2 + (giorno - 1) * 69 + (r.workerIndex - 1) * 2 + (r.turno - 1) }))
       .sort((a, b) => a.riga - b.riga);
@@ -2176,10 +2242,18 @@ $('btnConvalida').onclick = async () => {
       <p>Il rapportino è passato tra i convalidati.</p>`);
     mostraVista('arrivati');
   } catch (err) {
+    if (lucchetto) { await lasciaLucchetto(annoL, meseL, lucchetto); lucchetto = null; }
+    if (err instanceof ExcelOccupato) {
+      await finestra('Excel occupato', `<p>${err.message}</p>
+        <p>Aspetta un momento e premi di nuovo <b>Convalida e scrivi su Excel</b>. Excel non è stato modificato.</p>`);
+      return;
+    }
     const msg = /NoModificationAllowed|InvalidState|being used|in uso/i.test(`${err.name} ${err.message}`)
       ? 'il file è in uso (forse aperto in Excel): chiudilo e riprova' : messaggioErrore(err);
     await finestra('Scrittura non riuscita', `<p>${esc(msg)}</p>`);
   } finally {
+    // uscite senza scrivere (es. "Annulla"): il lucchetto si toglie comunque
+    if (lucchetto) await lasciaLucchetto(annoL, meseL, lucchetto);
     btn.disabled = false;
     btn.textContent = testoBtn;
   }
@@ -2400,7 +2474,7 @@ const MESSAGGI_BASE = [{
     '3. In *Rientro in deposito* scrivete l\'ora di arrivo a destinazione, oppure l\'ora di rientro se tornate in giornata.',
     '4. Lasciate *vuoti* "Inizio lavori in cantiere" e "Fine lavori in cantiere".',
     '5. Premete *Applica a tutti i presenti*. *Non* usate il pulsante "Smart time entry".',
-    '6. *Pausa:* se vi siete fermati a mangiare, scrivete l\'orario della sosta. Se non vi siete fermati, lasciate vuota la pausa.',
+    '6. *Pausa:* se vi siete fermati a mangiare, scrivete l\'orario della sosta. Se non vi siete fermati, premete *Nessuna pausa*.',
     '7. In *Lavorazioni eseguite* scrivete: *Solo viaggio – trasferimento a …* (per esempio Milano).',
     '8. Premete *Invia*. Comparirà l\'avviso *"Mancano gli orari"*: è normale, premete *Continua lo stesso*.',
     '',
@@ -3024,6 +3098,10 @@ if (EMULATORE) {
     modificaUtente: async uid => updateDoc(doc(db, 'utenti', uid), { attivo: false }).then(() => 'scritto', e => e.code),
     leggiPin: async () => getDocs(collection(db, 'accessi')).then(s => 'letti ' + s.size, e => e.code),
     testata: (pagina, t) => testataModulo(pagina, t),
+    // lucchetto sul file del mese: per simulare un altro responsabile che sta scrivendo
+    prendiLucchetto: (anno, mese) => prendiLucchetto(anno, mese).then(giro => giro, e => `occupato: ${e.message}`),
+    lasciaLucchetto: (anno, mese, giro) => lasciaLucchetto(anno, mese, giro),
+    togliLucchettoDiAltri: (anno, mese) => deleteDoc(refLucchetto(anno, mese)).then(() => 'tolto', e => e.code),
     oreProposte: r => bloccoIniziale(r).ore.t1,
     blocchiProposti: r => blocchiIniziali(r)
   };
