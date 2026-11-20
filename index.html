@@ -388,6 +388,11 @@
             <button class="btn primario" type="submit" id="btnCreaUtente">Crea utente</button>
             <p class="aiuto">Si entra scrivendo nome e cognome come li hai scritti qui (maiuscole e accenti non contano) e il PIN. Comunicali di persona o con il tasto WhatsApp. Il PIN si cambia con Genera / Cambia nella riga dell'utente.</p>
           </form>
+          <!-- promemoria per lo sviluppatore: un utente eliminato tiene occupato il suo nome (8.3) -->
+          <details class="guida-utente" id="guidaNomeOccupato">
+            <summary>Come riusare il nome di un utente eliminato ("Esiste già un utente con questo nome")</summary>
+            <div id="guidaNomeOccupatoTesto"></div>
+          </details>
         </div>
 
         <h2>Cartella dei file Excel</h2>

@@ -2909,6 +2909,25 @@ $('listaUtenti').addEventListener('click', async e => {
   } catch (err) { avviso(messaggioErrore(err), 'errore'); }
 });
 
+// Un utente eliminato tiene occupato il suo nome: l'app cancella solo la scheda, la "chiave di accesso" resta in
+// Firebase Authentication e (nel piano gratuito) si cancella solo dalla console. Guida passo passo per lo sviluppatore.
+// Maiuscole e minuscole non contano: "MARIO ROSSI" e "Mario Rossi" sono lo stesso codice mario.rossi.
+function guidaNomeOccupato(codice) {
+  const c = esc(codice || 'nome.cognome');
+  return `<ol class="passi">
+      <li>Apri <b>console.firebase.google.com</b> con l'account Google con cui gestisci Firebase.</li>
+      <li>Entra nel progetto <b>Rapportino Cantiere</b>.</li>
+      <li>Nel menu a sinistra: <b>Authentication</b> → scheda <b>Utenti</b>.</li>
+      <li>Nella ricerca scrivi <b>${c}</b>: trovi la riga <b>${c}@rapportino.invalid</b>.</li>
+      <li>Clicca i <b>tre puntini ⋮</b> a destra di quella riga → <b>Elimina account</b> → conferma.</li>
+      <li>Torna qui e crea di nuovo l'utente con il nome giusto (maiuscole o minuscole non contano).</li>
+      <li>Manda il <b>nuovo PIN</b> all'operaio con il tasto WhatsApp.</li>
+    </ol>
+    <p class="aiuto">Perché: quando elimini un utente l'app cancella solo la sua scheda; la sua "chiave di accesso" resta in Firebase e tiene occupato il nome
+      finché non la cancelli dalla console. Se avevi creato un nome di ripiego (es. con una lettera in meno), eliminalo qui e poi anche dalla console, allo stesso modo.</p>`;
+}
+$('guidaNomeOccupatoTesto').innerHTML = guidaNomeOccupato();
+
 // Il nuovo account si crea con una seconda connessione "usa e getta", così il responsabile resta collegato
 $('formUtente').addEventListener('submit', async e => {
   e.preventDefault();
@@ -2931,6 +2950,12 @@ $('formUtente').addEventListener('submit', async e => {
     $('formUtente').reset();
     await finestra('Utente creato', `<p><b>${esc(nome)}</b> può entrare con:</p><p>Nome e cognome: <b>${esc(nome)}</b><br>PIN: <b>${esc(password)}</b></p><p>Comunicaglieli di persona.</p>`);
   } catch (err) {
+    // nome già usato (anche da un utente eliminato): i passaggi per liberarlo, con il codice giusto già scritto
+    if (/email-already-in-use/.test(err?.code || '')) {
+      await finestra('Questo nome è già occupato', `<p>Esiste già una chiave di accesso per <b>${esc(nome)}</b> (codice <b>${esc(codice)}</b>), anche se l'utente è stato eliminato.</p>
+        <p>Per riusare questo nome:</p>${guidaNomeOccupato(codice)}`);
+      return;
+    }
     avviso(messaggioErrore(err), 'errore');
   } finally {
     if (app2) deleteApp(app2).catch(() => {});

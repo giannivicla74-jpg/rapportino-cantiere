@@ -689,3 +689,8 @@ button.o-p { cursor: pointer; -webkit-tap-highlight-color: transparent; }
 .riga-festivo { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 0 12px; margin-top: 12px; }
 .riga-festivo .campo { flex: 1 1 160px; }
 .riga-festivo .spunta-orari, .riga-festivo .btn { margin-bottom: 12px; }
+/* area sviluppatore: guida per riusare il nome di un utente eliminato */
+.guida-utente { margin-top: 14px; }
+.guida-utente summary { cursor: pointer; font-weight: 600; color: var(--primario); }
+.passi { padding-left: 22px; line-height: 1.5; }
+.passi li { margin: 4px 0; }
