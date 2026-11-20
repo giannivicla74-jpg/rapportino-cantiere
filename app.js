@@ -2926,7 +2926,21 @@ function guidaNomeOccupato(codice) {
     <p class="aiuto">Perché: quando elimini un utente l'app cancella solo la sua scheda; la sua "chiave di accesso" resta in Firebase e tiene occupato il nome
       finché non la cancelli dalla console. Se avevi creato un nome di ripiego (es. con una lettera in meno), eliminalo qui e poi anche dalla console, allo stesso modo.</p>`;
 }
-$('guidaNomeOccupatoTesto').innerHTML = guidaNomeOccupato();
+// Esempio completo (nome inventato: nel codice pubblico non vanno nomi veri di dipendenti)
+const ESEMPIO_NOME_OCCUPATO = `<h4>Esempio completo</h4>
+  <p><b>Cosa è successo:</b> hai creato l'utente <b>Mario Rosi</b> (cognome sbagliato) e l'hai eliminato. Poi hai creato <b>MARIO ROSSI</b> in stampatello
+    e hai eliminato anche questo. Ora, creando <b>Mario Rossi</b>, l'app dice che il nome esiste già, e per farlo entrare hai creato <b>Mario Ross</b> come ripiego.</p>
+  <p><b>Chiavi rimaste occupate:</b> <b>mario.rosi</b> (il primo) e <b>mario.rossi</b> (quello in stampatello: maiuscole e minuscole danno lo stesso codice).</p>
+  <ol class="passi">
+    <li>Apri <b>console.firebase.google.com</b> → progetto <b>Rapportino Cantiere</b> → <b>Authentication</b> → <b>Utenti</b>.</li>
+    <li>Cerca <b>mario.rosi</b> → tre puntini ⋮ → <b>Elimina account</b> → conferma.</li>
+    <li>Cerca <b>mario.rossi</b> → tre puntini ⋮ → <b>Elimina account</b> → conferma.</li>
+    <li>Torna nell'app, area sviluppatore → <b>Utenti</b>: <b>elimina</b> "Mario Ross".</li>
+    <li>Crea di nuovo l'utente <b>Mario Rossi</b> con un PIN di 6 cifre e il ruolo giusto: ora l'app lo accetta.</li>
+    <li>Con il tasto <b>WhatsApp</b> della sua riga mandagli nome e nuovo PIN.</li>
+    <li>Torna nella console e cancella anche <b>mario.ross</b> (il ripiego), come al passo 2.</li>
+  </ol>`;
+$('guidaNomeOccupatoTesto').innerHTML = guidaNomeOccupato() + ESEMPIO_NOME_OCCUPATO;
 
 // Il nuovo account si crea con una seconda connessione "usa e getta", così il responsabile resta collegato
 $('formUtente').addEventListener('submit', async e => {
