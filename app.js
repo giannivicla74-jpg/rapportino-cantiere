@@ -2528,10 +2528,10 @@ window.addEventListener('focus', () => {
 });
 
 const FILE_PONTE = [
-  { nome: 'Avvia_Ponte_Rapportino.bat', crlf: true, bom: false },
-  { nome: 'Scegli_Cartelle_Ponte.bat', crlf: true, bom: false },
-  { nome: 'ponte.ps1', crlf: true, bom: true },
-  { nome: 'LEGGIMI.txt', crlf: true, bom: false }
+  { sorgente: 'avvia.txt', nome: 'Avvia_Ponte_Rapportino.bat', crlf: true, bom: false },
+  { sorgente: 'scegli.txt', nome: 'Scegli_Cartelle_Ponte.bat', crlf: true, bom: false },
+  { sorgente: 'script.txt', nome: 'ponte.ps1', crlf: true, bom: true },
+  { sorgente: 'leggimi.txt', nome: 'LEGGIMI.txt', crlf: true, bom: false }
 ];
 $('btnScaricaPonte').onclick = async () => {
   const btn = $('btnScaricaPonte');
@@ -2540,7 +2540,7 @@ $('btnScaricaPonte').onclick = async () => {
     const zip = new JSZip();
     const cartella = zip.folder('Ponte_Rapportino');
     for (const f of FILE_PONTE) {
-      const res = await fetch(`ponte/${f.nome}`, { cache: 'no-store' });
+      const res = await fetch(`ponte/${f.sorgente}`, { cache: 'no-store' });
       if (!res.ok) throw new Error(`impossibile scaricare ${f.nome}`);
       let testo = await res.text();
       if (f.crlf) testo = testo.replace(/^\uFEFF/, '').replace(/\r?\n/g, '\r\n');
