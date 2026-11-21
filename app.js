@@ -287,6 +287,8 @@ async function utenteCambiato(user) {
   stato.annulla.forEach(f => { try { f(); } catch (_) {} });
   stato.annulla = [];
   stato.areaAperta = false;
+  $('avvisoPonte').hidden = true;
+  $('avvisoDaScrivere').hidden = true;
   $('avvisoCartella').hidden = true; // la barra della cartella riguarda solo il responsabile sul PC
   $('avvisoArchivio').hidden = true;
   if (!user) {
@@ -1062,6 +1064,15 @@ function avviaResponsabile() {
   }, err => avviso(`Rapportini non disponibili: ${messaggioErrore(err)}`, 'errore'));
   stato.annulla.push(off);
 
+  // rapportini già convalidati (es. dal telefono o da casa) in attesa di essere scritti su Excel in ufficio
+  const offDaScrivere = onSnapshot(query(collection(db, 'rapportini'), where('daScrivereExcel', '==', true)), snap => {
+    stato.daScrivere = snap.docs.map(d => ({ id: d.id, ...d.data() }))
+      .filter(r => r.stato === 'convalidato' && !r.fileExcel)
+      .sort((a, b) => (a.data || '').localeCompare(b.data || '') || ((a.convalidatoIl?.seconds || 0) - (b.convalidatoIl?.seconds || 0)));
+    aggiornaBarraDaScrivere();
+  }, () => {});
+  stato.annulla.push(offDaScrivere);
+
   if (stato.utente.sviluppatore) {
     const offU = onSnapshot(collection(db, 'utenti'), snap => disegnaUtenti(snap.docs.map(d => ({ uid: d.id, ...d.data() }))),
       err => avviso(`Elenco utenti non aggiornato: ${messaggioErrore(err)} (ricarica la pagina)`, 'errore'));
@@ -1082,10 +1093,10 @@ function avviaResponsabile() {
   // la cartella Excel serve solo sul PC: sul telefono o sul tablet non si controlla nemmeno
   if (dispositivoMobile()) {
     stato.cartellaPronta = false;
+    $('avvisoPonte').hidden = true;
     aggiornaInfoScrittura();
   } else {
-    CartellaExcel.restore().then(s => (s === 'pronta' ? cartellaPronta() : mostraAvvisoCartella(s)));
-    CartellaArchivio.restore().then(s => (s === 'pronta' ? archivioPronto() : mostraAvvisoArchivio(s)));
+    aggiornaStatoCartelle(true);
   }
 }
 
@@ -1098,7 +1109,7 @@ function voceRapportino(r) {
   const giorno = r.giornoExcel || Number(String(r.data || '').slice(8, 10));
   const excel = !conv ? '' : r.fileExcel
     ? `<div class="spunta-excel" title="Cartella: ${esc(r.cartellaExcel || '')}"><span class="spunta">✓</span>Scritto in Excel · ${esc(r.fileExcel)} · giorno ${giorno}</div>`
-    : '<div class="spunta-excel no">✗ Non scritto in Excel</div>';
+    : '<div class="spunta-excel no">⏳ Da scrivere in Excel</div>';
   const nOperai = (r.operai?.length || 0) - (r.operaiTolti?.length || 0) + (r.operaiAggiunti?.length || 0);
   return `<button class="voce ${conv && r.fileExcel ? 'scritta' : ''}" data-id="${esc(r.id)}">
     <div class="voce-princ">
@@ -1405,17 +1416,20 @@ function apriRapportino(r) {
   disegnaBlocchi();
   aggiornaInfoScrittura();
   const conv = r.stato === 'convalidato';
-  $('btnConvalida').textContent = conv ? 'Riscrivi su Excel' : 'Convalida e scrivi su Excel';
+  const mob = dispositivoMobile();
+  $('btnConvalida').textContent = !conv
+    ? (mob ? 'Convalida (poi su Excel dal PC)' : 'Convalida e scrivi su Excel')
+    : (!r.fileExcel ? (mob ? 'Salva modifiche' : 'Scrivi su Excel') : 'Riscrivi su Excel');
   $('btnSalvaOre').hidden = conv;
-  $('btnArchivia').hidden = !conv || dispositivoMobile();
+  $('btnArchivia').hidden = !conv || mob;
   $('infoArchivioRapportino').innerHTML = !conv ? '' : r.archivioFile
     ? `✓ In archivio: <b>${esc(r.archivioPercorso || '')}/${esc(r.archivioFile)}</b>`
     : '<b>Non ancora nell\'archivio.</b>';
-  $('infoFileExcel').innerHTML = conv
+  $('infoFileExcel').innerHTML = !conv ? '' : r.fileExcel
     ? `Convalidato da ${esc(r.convalidatoDaNome || '')} il ${esc(dataOraIT(r.convalidatoIl))}.
        ${percorsoHTML(r.cartellaExcel, r.fileExcel, r.giornoExcel || Number(String(r.data).slice(8, 10)),
          (r.righeExcel || []).map(x => { const [nome, turno, riga] = x.split('|'); return { nome, turno: Number(turno), riga: Number(riga) }; }))}`
-    : '';
+    : `Convalidato da ${esc(r.convalidatoDaNome || '')} il ${esc(dataOraIT(r.convalidatoIl))}. <b>In attesa di essere scritto su Excel dal PC dell'ufficio.</b>`;
   mostraVista('dettaglio');
 }
 $('btnTornaElenco').onclick = () => mostraVista(stato.aperto?.dati?.stato === 'convalidato' ? 'convalidati' : 'arrivati');
@@ -1853,11 +1867,10 @@ $('btnAggiungiBlocco').onclick = () => {
 };
 
 // Dai blocchi alle righe da scrivere in Excel (una per operaio e turno) + controlli
-function calcolaRecord() {
-  const { dati, blocchi } = stato.aperto;
+function calcolaRecordDi(dati, blocchi, listaOperai) {
   const records = [], errori = [], avvisi = [];
   const visti = new Map();
-  blocchi.forEach((b, i) => {
+  (blocchi || []).forEach((b, i) => {
     const nomeB = blocchi.length > 1 ? `Blocco ${i + 1}` : 'Il blocco';
     let qualcosa = false;
     ['t1', 't2'].forEach((t, x) => {
@@ -1881,10 +1894,14 @@ function calcolaRecord() {
     if (!qualcosa && b.operai.length > 0) errori.push(`${nomeB}: scrivi le ore nel riquadro 1°/2° turno`);
   });
   const conOre = new Set(records.map(r => r.workerName));
-  const senza = tuttiGliOperai().filter(n => !conOre.has(n));
+  const senza = (listaOperai || []).filter(n => !conOre.has(n));
   if (senza.length) avvisi.push(`Senza ore: ${senza.join(', ')}`);
   if (records.length === 0 && errori.length === 0) errori.push('Nessuna ora da scrivere');
   return { records, errori, avvisi };
+}
+function calcolaRecord() {
+  const { dati, blocchi } = stato.aperto;
+  return calcolaRecordDi(dati, blocchi, tuttiGliOperai());
 }
 
 function aggiornaRiepilogo() {
@@ -2005,7 +2022,7 @@ function mostraAvvisoCartella(s) {
 function cartellaPronta() {
   stato.cartellaPronta = true;
   $('avvisoCartella').hidden = true;
-  $('infoCartella').textContent = `Cartella collegata: ${CartellaExcel.name()}`;
+  $('infoCartella').textContent = `Cartella collegata: ${CartellaExcel.name()}${CartellaExcel.viaPonte() ? ' (tramite Ponte PC)' : ''}`;
   aggiornaInfoScrittura();
 }
 
@@ -2013,12 +2030,13 @@ function cartellaPronta() {
 async function aggiornaInfoScrittura() {
   const el = $('infoScrittura');
   if (!el) return;
-  if (dispositivoMobile()) { el.textContent = 'La scrittura su Excel si fa dal PC dell\'ufficio.'; return; }
+  if (dispositivoMobile()) { el.textContent = 'Dal telefono puoi convalidare le ore: poi dal PC dell\'ufficio le scrivi su Excel con un clic.'; return; }
   if (!stato.cartellaPronta) { el.innerHTML = `<b>Cartella Excel non collegata</b> (${stato.utente?.sviluppatore ? 'Elenchi e utenti → Cartella dei file Excel' : 'barra gialla in alto'}).`; return; }
+  const via = CartellaExcel.viaPonte() ? ' (tramite Ponte PC)' : '';
   try {
     const files = await CartellaExcel.listExcelFiles();
-    el.innerHTML = `Scrive nella cartella <b>${esc(CartellaExcel.name())}</b>, che contiene: ${files.length ? files.map(esc).join(', ') : 'nessun file Excel'}.`;
-  } catch (_) { el.textContent = `Scrive nella cartella ${CartellaExcel.name()}.`; }
+    el.innerHTML = `Scrive nella cartella <b>${esc(CartellaExcel.name())}</b>${via}, che contiene: ${files.length ? files.map(esc).join(', ') : 'nessun file Excel'}.`;
+  } catch (_) { el.textContent = `Scrive nella cartella ${CartellaExcel.name()}${via}.`; }
 }
 $('btnCartella').onclick = async () => {
   try {
@@ -2029,6 +2047,10 @@ $('btnCartella').onclick = async () => {
 };
 $('btnCambiaCartella').onclick = async () => {
   if (dispositivoMobile()) { avviso('La cartella Excel si collega dal PC dell\'ufficio', 'errore'); return; }
+  if (CartellaExcel.viaPonte()) {
+    await finestra('Cartella gestita dal Ponte PC', '<p>Su questo PC è attivo il <b>Ponte PC</b>.</p><p>Per cambiare la cartella Excel lancia <b>Scegli_Cartelle_Ponte.bat</b>, oppure chiudi la finestra del Ponte con la X per tornare al collegamento di Chrome.</p>');
+    return;
+  }
   try { await CartellaExcel.choose(); cartellaPronta(); avviso(`Cartella collegata: ${CartellaExcel.name()}`, 'ok'); }
   catch (err) { if (err.name !== 'AbortError') avviso(err.message, 'errore'); }
 };
@@ -2039,13 +2061,13 @@ async function richiediCartella(perConvalida = false) {
       : '<p>I file Excel si usano solo dal PC dell\'ufficio.</p>');
     return false;
   }
-  if (!CartellaExcel.supported()) {
-    await finestra('Excel non raggiungibile', '<p>Per scrivere su Excel usa il PC dell\'ufficio con Microsoft Edge o Google Chrome.</p>');
-    return false;
-  }
-  // rilegge ogni volta la cartella salvata: se è stata cambiata (anche da un'altra scheda) si usa quella nuova
-  if (!window.__prova) {
-    const s = await CartellaExcel.restore();
+  if (!stato.handleFintoExcel) {
+    const s = await CartellaExcel.restore(true);
+    aggiornaBarraPonte();
+    if (!CartellaExcel.supported()) {
+      await finestra('Excel non raggiungibile', '<p>Per scrivere su Excel usa il PC dell\'ufficio con Microsoft Edge o Google Chrome (oppure avvia il Ponte PC).</p>');
+      return false;
+    }
     if (s === 'pronta' || (s === 'da-confermare' && await CartellaExcel.confirmAccess().catch(() => false))) {
       cartellaPronta();
       return true;
@@ -2093,12 +2115,82 @@ function percorsoHTML(cartella, file, giorno, righe = []) {
 
 const etichettaTurno =v => [v.commessa || '(senza commessa)', ...VOCI_ORE.filter(([k]) => v[k]).map(([k, et]) => `${et} ${fmtOre(v[k])}`)].join(' · ');
 
+async function convalidaSenzaExcel(dati, blocchi) {
+  const campi = {
+    stato: 'convalidato',
+    blocchi,
+    ...campiCorrezioni(),
+    ...campiOrari(),
+    daScrivereExcel: true,
+    ...(dati.stato === 'convalidato' ? {} : {
+      convalidatoIl: serverTimestamp(),
+      convalidatoDaUid: stato.utente.uid,
+      convalidatoDaNome: stato.utente.nome
+    })
+  };
+  await updateDoc(doc(db, 'rapportini', dati.id), campi);
+  const eraConv = dati.stato === 'convalidato';
+  await finestra(eraConv ? 'Modifiche salvate' : 'Convalidato (in attesa di Excel)',
+    `<p>${eraConv ? 'Le ore aggiornate sono state salvate.' : 'Il rapportino è stato convalidato e spostato tra i <b>Convalidati</b>.'}</p>
+     <p>Quando apri l'app sul <b>PC dell'ufficio</b>, premi il tasto in alto <b>"Scrivi tutti su Excel"</b> per scriverlo nei file Excel e nell'archivio.</p>`);
+  mostraVista(eraConv ? 'convalidati' : 'arrivati');
+}
+
 $('btnConvalida').onclick = async () => {
   const { dati } = stato.aperto;
   const { records, errori, avvisi } = calcolaRecord();
-  if (errori.length) { await finestra('Da sistemare prima di scrivere', `<ul>${errori.map(e => `<li>${esc(e)}</li>`).join('')}</ul>`); return; }
-  if (avvisi.length && !await conferma('Controlla', `<ul>${avvisi.map(a => `<li>${esc(a)}</li>`).join('')}</ul><p>Vuoi scrivere lo stesso?</p>`, 'Scrivi lo stesso')) return;
-  if (!await richiediCartella(true)) return;
+  if (errori.length) { await finestra('Da sistemare prima di procedere', `<ul>${errori.map(e => `<li>${esc(e)}</li>`).join('')}</ul>`); return; }
+  if (avvisi.length && !await conferma('Controlla', `<ul>${avvisi.map(a => `<li>${esc(a)}</li>`).join('')}</ul><p>Vuoi procedere lo stesso?</p>`, 'Procedi lo stesso')) return;
+
+  // Sul telefono o tablet: convalida e salva online; la scrittura su Excel si fa poi dal PC in ufficio con un clic
+  if (dispositivoMobile()) {
+    if (dati.stato === 'convalidato' && dati.fileExcel) {
+      await finestra('Serve il PC dell\'ufficio', '<p>Questo rapportino è già stato scritto su Excel. Per riscriverlo usa il PC dell\'ufficio.</p>');
+      return;
+    }
+    const btn = $('btnConvalida');
+    btn.disabled = true;
+    const testoBtn = btn.textContent;
+    btn.textContent = 'Salvataggio in corso…';
+    try { await convalidaSenzaExcel(dati, stato.aperto.blocchi); }
+    catch (err) { await finestra('Salvataggio non riuscito', `<p>${esc(messaggioErrore(err))}</p>`); }
+    finally { btn.disabled = false; btn.textContent = testoBtn; }
+    return;
+  }
+
+  // Sul PC: se la cartella Excel non è collegata (es. da casa), propone di convalidare comunque e scrivere su Excel in ufficio
+  let cartellaOk = false;
+  if (stato.handleFintoExcel) {
+    cartellaOk = !!stato.cartellaPronta;
+  } else {
+    const s = await CartellaExcel.restore(true);
+    aggiornaBarraPonte();
+    if (s === 'pronta' || (s === 'da-confermare' && await CartellaExcel.confirmAccess().catch(() => false))) {
+      cartellaPronta();
+      cartellaOk = true;
+    } else {
+      mostraAvvisoCartella(s);
+    }
+  }
+  if (!cartellaOk) {
+    if (!dati.fileExcel) {
+      const scelta = await finestra('Cartella Excel non collegata',
+        '<p>Su questo PC la cartella dei file Excel non è collegata.</p><p>Puoi <b>convalidare lo stesso</b> adesso e scrivere su Excel più tardi dal PC dell\'ufficio con un clic, oppure annullare e collegare prima la cartella.</p>',
+        [{ testo: 'Annulla', valore: false }, { testo: 'Convalida (scrivo su Excel in ufficio)', valore: true, primario: true }]);
+      if (scelta) {
+        const btn = $('btnConvalida');
+        btn.disabled = true;
+        const testoBtn = btn.textContent;
+        btn.textContent = 'Salvataggio in corso…';
+        try { await convalidaSenzaExcel(dati, stato.aperto.blocchi); }
+        catch (err) { await finestra('Salvataggio non riuscito', `<p>${esc(messaggioErrore(err))}</p>`); }
+        finally { btn.disabled = false; btn.textContent = testoBtn; }
+      }
+    } else {
+      avviso('Collega prima la cartella dei file Excel (barra gialla in alto o Ponte PC)', 'errore');
+    }
+    return;
+  }
 
   const btn = $('btnConvalida');
   btn.disabled = true;
@@ -2147,14 +2239,16 @@ $('btnConvalida').onclick = async () => {
     const righe = daScrivere.map(r => ({ nome: r.workerName, turno: r.turno, riga: 2 + (giorno - 1) * 69 + (r.workerIndex - 1) * 2 + (r.turno - 1) }))
       .sort((a, b) => a.riga - b.riga);
 
+    const campiConv = dati.stato === 'convalidato'
+      ? { scrittoExcelIl: serverTimestamp(), scrittoExcelDaNome: stato.utente.nome }
+      : { convalidatoIl: serverTimestamp(), convalidatoDaUid: stato.utente.uid, convalidatoDaNome: stato.utente.nome };
     await updateDoc(doc(db, 'rapportini', dati.id), {
       stato: 'convalidato',
       blocchi: stato.aperto.blocchi,
       ...campiCorrezioni(),
       ...campiOrari(),
-      convalidatoIl: serverTimestamp(),
-      convalidatoDaUid: stato.utente.uid,
-      convalidatoDaNome: stato.utente.nome,
+      ...campiConv,
+      daScrivereExcel: false,
       fileExcel: fileName,
       cartellaExcel: CartellaExcel.name(),
       giornoExcel: giorno,
@@ -2164,7 +2258,9 @@ $('btnConvalida').onclick = async () => {
     const finale = {
       ...dati, stato: 'convalidato', blocchi: stato.aperto.blocchi,
       operaiAggiunti: stato.aperto.aggiunti, operaiTolti: stato.aperto.tolti,
-      convalidatoIl: new Date(), convalidatoDaUid: stato.utente.uid, convalidatoDaNome: stato.utente.nome,
+      convalidatoIl: dati.convalidatoIl || new Date(),
+      convalidatoDaUid: dati.convalidatoDaUid || stato.utente.uid,
+      convalidatoDaNome: dati.convalidatoDaNome || stato.utente.nome,
       fileExcel: fileName, cartellaExcel: CartellaExcel.name(), giornoExcel: giorno
     };
     const esitoArchivio = await archiviaRapportino(finale).then(
@@ -2173,8 +2269,8 @@ $('btnConvalida').onclick = async () => {
     await finestra('Convalidato', `<p>Scritti <b>${daScrivere.length}</b> turni.${saltati ? ` ${saltati} lasciati com'erano perché già presenti.` : ''}</p>
       ${percorsoHTML(CartellaExcel.name(), fileName, giorno, righe)}
       ${esitoArchivio}
-      <p>Il rapportino è passato tra i convalidati.</p>`);
-    mostraVista('arrivati');
+      <p>Il rapportino è tra i convalidati.</p>`);
+    mostraVista(dati.stato === 'convalidato' ? 'convalidati' : 'arrivati');
   } catch (err) {
     const msg = /NoModificationAllowed|InvalidState|being used|in uso/i.test(`${err.name} ${err.message}`)
       ? 'il file è in uso (forse aperto in Excel): chiudilo e riprova' : messaggioErrore(err);
@@ -2184,6 +2280,125 @@ $('btnConvalida').onclick = async () => {
     btn.textContent = testoBtn;
   }
 };
+
+// ---------------------------------------------------------------- scrittura in blocco dei rapportini convalidati da remoto
+function aggiornaBarraDaScrivere() {
+  const barra = $('avvisoDaScrivere');
+  if (!barra || stato.utente?.ruolo !== 'responsabile') { if (barra) barra.hidden = true; return; }
+  const n = (stato.daScrivere || []).length;
+  if (!n) { barra.hidden = true; return; }
+  const mob = dispositivoMobile();
+  $('avvisoDaScrivereTesto').textContent = mob
+    ? `📋 ${n} rapportin${n === 1 ? 'o convalidato' : 'i convalidati'} in attesa di essere scritt${n === 1 ? 'o' : 'i'} su Excel dal PC dell'ufficio.`
+    : `📋 ${n} rapportin${n === 1 ? 'o convalidato' : 'i convalidati'} da scrivere su Excel.`;
+  $('btnScriviTuttiExcel').hidden = mob;
+  $('btnScriviTuttiExcel').textContent = n === 1 ? 'Scrivi su Excel' : `Scrivi tutti (${n}) su Excel`;
+  barra.hidden = false;
+}
+
+async function scriviTuttiSuExcel() {
+  const lista = [...(stato.daScrivere || [])];
+  if (!lista.length) { avviso('Nessun rapportino in attesa di Excel'); return; }
+  if (!await richiediCartella(true)) return;
+  const ok = await conferma('Scrivere su Excel i rapportini convalidati?',
+    `<p>Verranno scritti nella cartella <b>${esc(CartellaExcel.name())}</b>${CartellaExcel.viaPonte() ? ' (tramite Ponte PC)' : ''} questi <b>${lista.length}</b> rapportin${lista.length === 1 ? 'o' : 'i'}:</p>
+     <ul>${lista.map(r => `<li><b>${esc(dataIT(r.data))}</b> · ${esc(r.commessa)} · Caposquadra ${esc(r.caposquadraNome)}</li>`).join('')}</ul>`,
+    `Scrivi ${lista.length === 1 ? 'su Excel' : `tutti (${lista.length})`}`);
+  if (!ok) return;
+
+  const btn = $('btnScriviTuttiExcel');
+  btn.disabled = true;
+  const testoOrig = btn.textContent;
+  const esiti = [];
+  let okCount = 0;
+
+  try {
+    for (let idx = 0; idx < lista.length; idx++) {
+      const r = lista[idx];
+      btn.textContent = `Scrittura ${idx + 1}/${lista.length}…`;
+      const et = `${dataIT(r.data)} · ${r.commessa}`;
+      try {
+        const blocchi = r.blocchi?.length ? r.blocchi : blocchiIniziali(r);
+        const listaOp = [
+          ...(r.operai || []).map(o => o.nome).filter(n => !(r.operaiTolti || []).includes(n)),
+          ...(r.operaiAggiunti || [])
+        ];
+        const { records, errori } = calcolaRecordDi(r, blocchi, listaOp);
+        if (errori.length) throw new Error(errori.join('; '));
+
+        const [anno, mese, giorno] = String(r.data).split('-').map(Number);
+        const fileName = await fileDelMese(anno, mese);
+        if (!fileName) { esiti.push(`⚠ <b>${esc(et)}</b>: saltato (manca il file del mese)`); continue; }
+        if (await CartellaExcel.isOpenInExcel(fileName)) {
+          throw new Error(`il file ${fileName} è aperto in Excel: chiudilo e ripremi "Scrivi tutti su Excel"`);
+        }
+
+        const bytes = await CartellaExcel.readBytes(fileName);
+        const operaiFile = await ExcelXlsm.readWorkers(bytes);
+        const indice = new Map(operaiFile.map(w => [w.name.trim().toUpperCase(), w.index]));
+        const mancanti = [...new Set(records.map(x => x.workerName).filter(n => !indice.has(n.trim().toUpperCase())))];
+        if (mancanti.length) throw new Error(`operai non trovati in ${fileName}: ${mancanti.join(', ')}`);
+        let daScrivere = records.map(x => ({ ...x, workerIndex: indice.get(x.workerName.trim().toUpperCase()) }));
+
+        const conflitti = await ExcelXlsm.findConflicts(bytes, giorno, daScrivere);
+        let saltati = 0;
+        if (conflitti.length) {
+          const scelta = await finestra(`Dati già presenti (${et})`, `
+            <p>In <b>${esc(fileName)}</b>, giorno ${giorno}, questi turni contengono già dati diversi:</p>
+            <ul>${conflitti.map(c => `<li><b>${esc(c.workerName)} – ${c.turno}° turno</b><br>In Excel: ${esc(etichettaTurno(c.existing))}<br>Nuovo: ${esc(etichettaTurno(c.nuovo))}</li>`).join('')}</ul>`,
+            [{ testo: 'Salta questo rapportino', valore: 'annulla' }, { testo: 'Lascia quelli già scritti', valore: 'salta' }, { testo: 'Sovrascrivi', valore: 'sovrascrivi', primario: true }]);
+          if (scelta === 'annulla' || !scelta) { esiti.push(`⚠ <b>${esc(et)}</b>: saltato per dati già presenti`); continue; }
+          if (scelta === 'salta') {
+            const inConflitto = new Set(conflitti.map(c => `${c.workerIndex}-${c.turno}`));
+            const prima = daScrivere.length;
+            daScrivere = daScrivere.filter(x => !inConflitto.has(`${x.workerIndex}-${x.turno}`));
+            saltati = prima - daScrivere.length;
+          }
+        }
+
+        if (daScrivere.length) {
+          if (!await CartellaExcel.hasBackupToday(fileName)) {
+            await CartellaExcel.datedBackup(fileName, bytes);
+          }
+          const risultato = await ExcelXlsm.writePresenze(bytes, giorno, daScrivere);
+          await CartellaExcel.writeBytes(fileName, risultato.bytes);
+        }
+
+        const righe = daScrivere.map(x => ({ nome: x.workerName, turno: x.turno, riga: 2 + (giorno - 1) * 69 + (x.workerIndex - 1) * 2 + (x.turno - 1) }))
+          .sort((a, b) => a.riga - b.riga);
+
+        await updateDoc(doc(db, 'rapportini', r.id), {
+          daScrivereExcel: false,
+          scrittoExcelIl: serverTimestamp(),
+          scrittoExcelDaNome: stato.utente.nome,
+          fileExcel: fileName,
+          cartellaExcel: CartellaExcel.name(),
+          giornoExcel: giorno,
+          righeExcel: righe.map(x => `${x.nome}|${x.turno}|${x.riga}`)
+        });
+
+        const finale = { ...r, blocchi, fileExcel: fileName, cartellaExcel: CartellaExcel.name(), giornoExcel: giorno };
+        const notaArch = await archiviaRapportino(finale).then(
+          () => ' · archiviato',
+          () => ' · ⚠ non archiviato (collega l\'archivio)');
+        okCount++;
+        esiti.push(`✓ <b>${esc(et)}</b>: scritti ${daScrivere.length} turni in ${esc(fileName)}${saltati ? ` (${saltati} saltati)` : ''}${notaArch}`);
+      } catch (err) {
+        const msg = /NoModificationAllowed|InvalidState|being used|in uso/i.test(`${err.name} ${err.message}`)
+          ? 'file aperto in Excel: chiudilo e riprova' : messaggioErrore(err);
+        esiti.push(`✗ <b>${esc(et)}</b>: ${esc(msg)}`);
+        if (/aperto in Excel|in uso/i.test(msg)) break;
+      }
+    }
+    await finestra('Scrittura su Excel terminata',
+      `<p>Scritti <b>${okCount}</b> rapportin${okCount === 1 ? 'o' : 'i'} su ${lista.length}.</p><ul>${esiti.map(x => `<li>${x}</li>`).join('')}</ul>`);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = testoOrig;
+    aggiornaBarraDaScrivere();
+  }
+}
+$('btnScriviTuttiExcel').onclick = scriviTuttiSuExcel;
 
 // ---------------------------------------------------------------- archivio dei rapportini
 function mostraAvvisoArchivio(s) {
@@ -2204,7 +2419,7 @@ function mostraAvvisoArchivio(s) {
 function archivioPronto() {
   stato.archivioPronto = true;
   $('avvisoArchivio').hidden = true;
-  $('infoArchivio').textContent = `Cartella dell'archivio: ${CartellaArchivio.name()}`;
+  $('infoArchivio').textContent = `Cartella dell'archivio: ${CartellaArchivio.name()}${CartellaArchivio.viaPonte() ? ' (tramite Ponte PC)' : ''}`;
 }
 async function scegliArchivio() {
   try {
@@ -2215,20 +2430,138 @@ async function scegliArchivio() {
   } catch (err) { if (err.name !== 'AbortError') avviso(`Archivio non collegato: ${err.message}`, 'errore'); }
 }
 $('btnArchivioBarra').onclick = scegliArchivio;
-$('btnCambiaArchivio').onclick = () => {
+$('btnCambiaArchivio').onclick = async () => {
   if (dispositivoMobile()) { avviso('La cartella dell\'archivio si sceglie dal PC dell\'ufficio', 'errore'); return; }
+  if (CartellaArchivio.viaPonte()) {
+    await finestra('Archivio gestito dal Ponte PC', '<p>Su questo PC è attivo il <b>Ponte PC</b>.</p><p>Per cambiare la cartella dell\'archivio lancia <b>Scegli_Cartelle_Ponte.bat</b>, oppure chiudi la finestra del Ponte con la X per tornare al collegamento di Chrome.</p>');
+    return;
+  }
   $('btnArchivioBarra').dataset.azione = 'scegli';
   scegliArchivio();
 };
 // Accesso alla cartella: la rilegge ogni volta e, se serve, chiede la conferma
 async function archivioAccessibile() {
-  if (window.__prova) return !!stato.archivioPronto;
-  const s = await CartellaArchivio.restore();
+  if (stato.handleFintoArchivio) return !!stato.archivioPronto;
+  const s = await CartellaArchivio.restore(true);
+  aggiornaBarraPonte();
   if (s === 'pronta') { archivioPronto(); return true; }
   if (s === 'da-confermare' && await CartellaArchivio.confirmAccess().catch(() => false)) { archivioPronto(); return true; }
   mostraAvvisoArchivio(s);
   return false;
 }
+
+// ---------------------------------------------------------------- Ponte PC (opzionale)
+function aggiornaBarraPonte() {
+  const barra = $('avvisoPonte');
+  const info = $('infoPonte');
+  if (!barra || stato.utente?.ruolo !== 'responsabile' || dispositivoMobile()) {
+    if (barra) barra.hidden = true;
+    return;
+  }
+  const p = typeof PonteLocale !== 'undefined' ? PonteLocale.ultimoStato() : null;
+  if (!p || !p.ok) {
+    barra.hidden = true;
+    if (info) info.textContent = 'Ponte PC spento su questo computer: l\'app usa il collegamento cartella normale di Chrome.';
+    return;
+  }
+  const parti = [];
+  if (p.excelPronta) parti.push(`Excel: ${p.excelNome}`);
+  if (p.archivioPronta) parti.push(`Archivio: ${p.archivioNome}`);
+  const testo = parti.length
+    ? `✓ Ponte PC attivo · ${parti.join(' · ')}`
+    : '✓ Ponte PC attivo, ma nessuna cartella impostata: lancia Scegli_Cartelle_Ponte.bat';
+  $('avvisoPonteTesto').textContent = testo;
+  barra.hidden = false;
+  if (info) info.textContent = testo;
+}
+async function aggiornaStatoCartelle(forzaPonte = false) {
+  if (stato.utente?.ruolo !== 'responsabile' || dispositivoMobile()) return;
+  if (typeof PonteLocale !== 'undefined') await PonteLocale.controlla(forzaPonte);
+  if (!stato.handleFintoExcel) {
+    const se = await CartellaExcel.restore(false);
+    if (se === 'pronta') cartellaPronta(); else mostraAvvisoCartella(se);
+  }
+  if (!stato.handleFintoArchivio) {
+    const sa = await CartellaArchivio.restore(false);
+    if (sa === 'pronta') archivioPronto(); else mostraAvvisoArchivio(sa);
+  }
+  aggiornaBarraPonte();
+}
+$('btnRicontrollaPonte').onclick = async () => {
+  await aggiornaStatoCartelle(true);
+  avviso(PonteLocale.attivo() ? 'Ponte PC attivo' : 'Ponte PC spento: tornato al metodo di Chrome', PonteLocale.attivo() ? 'ok' : '');
+};
+$('btnControllaPonte').onclick = $('btnRicontrollaPonte').onclick;
+$('btnAvviaPonteBarra').onclick = async () => {
+  const btn = $('btnAvviaPonteBarra');
+  const testoOrig = btn.textContent;
+  btn.disabled = true;
+  btn.textContent = 'Avvio Ponte PC…';
+  try {
+    // Prova prima se è già acceso; altrimenti apre il protocollo locale ponte-rapportino://
+    let st = await PonteLocale.controlla(true);
+    if (!st || !st.ok) {
+      const a = document.createElement('a');
+      a.href = 'ponte-rapportino://avvia';
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      for (let i = 0; i < 10; i++) {
+        await new Promise(r => setTimeout(r, 600));
+        st = await PonteLocale.controlla(true);
+        if (st && st.ok) break;
+      }
+    }
+    await aggiornaStatoCartelle(true);
+    if (st && st.ok) {
+      avviso('Ponte PC avviato', 'ok');
+    } else {
+      avviso('Il Ponte PC non ha risposto: avvialo dal PC (oppure usa "Collega cartella Excel")', 'errore');
+    }
+  } finally {
+    btn.disabled = false;
+    btn.textContent = testoOrig;
+  }
+};
+window.addEventListener('focus', () => {
+  if (stato.utente?.ruolo === 'responsabile' && !dispositivoMobile()) aggiornaStatoCartelle(true);
+});
+
+const FILE_PONTE = [
+  { nome: 'Avvia_Ponte_Rapportino.bat', crlf: true, bom: false },
+  { nome: 'Scegli_Cartelle_Ponte.bat', crlf: true, bom: false },
+  { nome: 'ponte.ps1', crlf: true, bom: true },
+  { nome: 'LEGGIMI.txt', crlf: true, bom: false }
+];
+$('btnScaricaPonte').onclick = async () => {
+  const btn = $('btnScaricaPonte');
+  btn.disabled = true;
+  try {
+    const zip = new JSZip();
+    const cartella = zip.folder('Ponte_Rapportino');
+    for (const f of FILE_PONTE) {
+      const res = await fetch(`ponte/${f.nome}`, { cache: 'no-store' });
+      if (!res.ok) throw new Error(`impossibile scaricare ${f.nome}`);
+      let testo = await res.text();
+      if (f.crlf) testo = testo.replace(/^\uFEFF/, '').replace(/\r?\n/g, '\r\n');
+      cartella.file(f.nome, (f.bom ? '\uFEFF' : '') + testo);
+    }
+    const blob = await zip.generateAsync({ type: 'blob' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'Ponte_Rapportino.zip';
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 5000);
+    avviso('Scaricato Ponte_Rapportino.zip', 'ok');
+  } catch (err) {
+    avviso(`Download non riuscito: ${err.message}`, 'errore');
+  } finally {
+    btn.disabled = false;
+  }
+};
 
 // Dove va il file: Anno/MM-Mese/AAAA-MM-GG_commessa_caposquadra_codice.html
 const nomeSicuro = t => String(t || '').replace(/[\\/:*?"<>|]+/g, '-').replace(/\s+/g, ' ').trim();
@@ -2243,8 +2576,26 @@ const inBase64 = async url => {
   return new Promise((ok, no) => { const f = new FileReader(); f.onload = () => ok(f.result); f.onerror = () => no(f.error); f.readAsDataURL(b); });
 };
 async function paginaArchivio(r) {
-  disegnaFronte(r);
-  const corpo = `<section class="stampa-pagina modulo">${$('dettaglioFronte').innerHTML}</section>${stampaRetro(r)}`;
+  const prec = stato.aperto;
+  const cambia = !prec || prec.id !== r.id;
+  if (cambia) {
+    stato.aperto = {
+      id: r.id, dati: r,
+      blocchi: r.blocchi?.length ? r.blocchi : blocchiIniziali(r),
+      aggiunti: [...(r.operaiAggiunti || [])],
+      tolti: [...(r.operaiTolti || [])]
+    };
+  }
+  let corpo;
+  try {
+    disegnaFronte(r);
+    corpo = `<section class="stampa-pagina modulo">${$('dettaglioFronte').innerHTML}</section>${stampaRetro(r)}`;
+  } finally {
+    if (cambia) {
+      stato.aperto = prec;
+      if (prec) disegnaFronte(prec.dati);
+    }
+  }
   const stili = (await (await fetch('style.css')).text()).replaceAll('@media print', '@media all');
   const logo = await inBase64(LOGO_BASE);
   return `<!doctype html>
@@ -3054,9 +3405,9 @@ $('btnChiudiArea').onclick = () => {
 // Solo per le prove automatiche con il simulatore: cartella finta e lettura diretta (per verificare le regole)
 if (EMULATORE) {
   window.__prova = {
-    usaCartella: async handle => { await CartellaExcel.useHandle(handle); cartellaPronta(); },
+    usaCartella: async handle => { stato.handleFintoExcel = true; await CartellaExcel.useHandle(handle); cartellaPronta(); },
     leggiPromemoria: async () => getDoc(doc(db, 'config', 'promemoria')).then(() => 'letto', e => e.code),
-    usaArchivio: async handle => { await CartellaArchivio.useHandle(handle); archivioPronto(); },
+    usaArchivio: async handle => { stato.handleFintoArchivio = true; await CartellaArchivio.useHandle(handle); archivioPronto(); },
     leggiRapportini: async () => (await getDocs(collection(db, 'rapportini'))).size,
     modificaRapportino: async (id, campi) => updateDoc(doc(db, 'rapportini', id), campi),
     scriviElenchi: async () => setDoc(doc(db, 'elenchi', 'automezzi'), { voci: ['PROVA'] }).then(() => 'scritto', e => e.code),

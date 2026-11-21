@@ -9,7 +9,8 @@ const CACHE = 'rapportino-' + self.APP_VERSION;
 const CACHE_LIBRERIE = 'rapportino-librerie';
 // Le icone grandi le scarica il telefono per conto suo: qui non servono e renderebbero pesante l'aggiornamento.
 const FILES = [
-  './', 'index.html', 'style.css', 'version.js', 'app.js', 'firebase-config.js', 'excel.js', 'cartella.js', 'archivio.js',
+  './', 'index.html', 'style.css', 'version.js', 'app.js', 'firebase-config.js', 'excel.js', 'ponte.js', 'cartella.js', 'archivio.js',
+  'ponte/ponte.ps1', 'ponte/Avvia_Ponte_Rapportino.bat', 'ponte/Scegli_Cartelle_Ponte.bat', 'ponte/LEGGIMI.txt',
   'manifest.webmanifest', 'libs/jszip.min.js', 'icons/icon-192.png', 'icons/logo-vicla.png', 'icons/gc-codelab.png'
 ];
 

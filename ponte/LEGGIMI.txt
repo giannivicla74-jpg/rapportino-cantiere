@@ -1,0 +1,26 @@
+PONTE PC - RAPPORTINO DI CANTIERE
+==================================
+
+Questo piccolo strumento permette al Rapportino di Cantiere di leggere
+e scrivere i file Excel e l'Archivio senza passare dai permessi cartella
+di Google Chrome.
+
+COME SI USA (UNA VOLTA SOLA PER PC):
+1. Estrai tutta questa cartella sul PC (es. in Documenti o sul Desktop).
+2. Fai doppio clic su "Scegli_Cartelle_Ponte.bat" e scegli:
+   - la cartella dei file Excel (anche sul NAS)
+   - la cartella dell'Archivio rapportini
+   - (consigliato sui PC dell'ufficio) spunta "Avvia automaticamente
+     il Ponte all'accensione del PC"
+3. Fai doppio clic su "Avvia_Ponte_Rapportino.bat" (oppure clicca il
+   tasto "Avvia Ponte PC" nella barra gialla dell'app).
+   Comparira la scritta verde "PONTE RAPPORTINO ATTIVO".
+   Puoi ridurre a icona la finestra mentre lavori.
+
+COME SI SPEGNE:
+- Chiudi la finestra del Ponte con la X in alto a destra.
+- Quando il Ponte e spento, l'app torna automaticamente al metodo normale
+  di Chrome (la barra gialla in alto).
+
+SE WINDOWS MOSTRA UN AVVISO BLU LA PRIMA VOLTA:
+- Clicca su "Ulteriori informazioni" e poi "Esegui comunque".

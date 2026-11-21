@@ -9,6 +9,8 @@ const CartellaArchivio = (() => {
   const STORE = 'cartelle';
   const KEY = 'archivio';
   let dirHandle = null;
+  let usaPonte = false;
+  let ponteNome = '';
 
   function idb() {
     return new Promise((resolve, reject) => {
@@ -38,8 +40,22 @@ const CartellaArchivio = (() => {
     });
   }
 
-  // 'pronta' (accesso già concesso), 'da-confermare' (serve un clic) o 'mancante'
-  async function restore() {
+  function viaPonte() {
+    return usaPonte;
+  }
+
+  // 'pronta' (accesso già concesso o Ponte PC attivo), 'da-confermare' (serve un clic) o 'mancante'
+  async function restore(forzaPonte = false) {
+    if (typeof PonteLocale !== 'undefined') {
+      const p = await PonteLocale.controlla(forzaPonte);
+      if (p && p.ok && p.archivioPronta) {
+        usaPonte = true;
+        ponteNome = p.archivioNome || 'Archivio';
+        return 'pronta';
+      }
+    }
+    usaPonte = false;
+    ponteNome = '';
     try {
       const handle = await loadHandle();
       if (!handle) return 'mancante';
@@ -52,12 +68,15 @@ const CartellaArchivio = (() => {
 
   // Da chiamare dopo un clic dell'utente
   async function confirmAccess() {
+    if (usaPonte) return true;
     if (!dirHandle) return false;
     return (await dirHandle.requestPermission({ mode: 'readwrite' })) === 'granted';
   }
 
   async function choose() {
     const handle = await window.showDirectoryPicker({ id: 'archivio-rapportini', mode: 'readwrite' });
+    usaPonte = false;
+    ponteNome = '';
     dirHandle = handle;
     await saveHandle(handle);
     return handle.name;
@@ -65,10 +84,12 @@ const CartellaArchivio = (() => {
 
   // Solo per le prove automatiche
   async function useHandle(handle) {
+    usaPonte = false;
+    ponteNome = '';
     dirHandle = handle;
   }
 
-  const name = () => (dirHandle ? dirHandle.name : '');
+  const name = () => (usaPonte ? ponteNome : (dirHandle ? dirHandle.name : ''));
 
   function requireDir() {
     if (!dirHandle) throw new Error('cartella dell\'archivio non collegata');
@@ -83,6 +104,7 @@ const CartellaArchivio = (() => {
 
   // Scrive il file e lo rilegge: se il contenuto non torna segnala l'errore
   async function salva(percorso, nomeFile, testo) {
+    if (usaPonte) return PonteLocale.archivioSalva(percorso, nomeFile, testo);
     const dir = await cartellaDi(percorso, true);
     const fh = await dir.getFileHandle(nomeFile, { create: true });
     const w = await fh.createWritable();
@@ -93,6 +115,7 @@ const CartellaArchivio = (() => {
   }
 
   async function esiste(percorso, nomeFile) {
+    if (usaPonte) return PonteLocale.archivioEsiste(percorso, nomeFile);
     try {
       const dir = await cartellaDi(percorso, false);
       const f = await (await dir.getFileHandle(nomeFile)).getFile();
@@ -102,5 +125,5 @@ const CartellaArchivio = (() => {
     }
   }
 
-  return { restore, confirmAccess, choose, useHandle, name, salva, esiste };
+  return { viaPonte, restore, confirmAccess, choose, useHandle, name, salva, esiste };
 })();

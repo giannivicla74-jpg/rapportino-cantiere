@@ -18,6 +18,7 @@
   <script src="version.js"></script>
   <script src="libs/jszip.min.js"></script>
   <script src="excel.js"></script>
+  <script src="ponte.js"></script>
   <script src="cartella.js"></script>
   <script src="archivio.js"></script>
   <script type="module" src="app.js"></script>
@@ -134,9 +135,20 @@
     </header>
 
     <div class="avviso" id="avvisoCoda" hidden></div>
+    <div class="avviso ponte-ok" id="avvisoPonte" hidden>
+      <span id="avvisoPonteTesto"></span>
+      <button class="btn piccolo" id="btnRicontrollaPonte" type="button">Ricontrolla</button>
+    </div>
+    <div class="avviso da-scrivere" id="avvisoDaScrivere" hidden>
+      <span id="avvisoDaScrivereTesto"></span>
+      <button class="btn piccolo primario" id="btnScriviTuttiExcel" type="button">Scrivi tutti su Excel</button>
+    </div>
     <div class="avviso" id="avvisoCartella" hidden>
       <span id="avvisoCartellaTesto"></span>
-      <button class="btn piccolo primario" id="btnCartella">Collega cartella Excel</button>
+      <span class="avviso-azioni">
+        <button class="btn piccolo" id="btnAvviaPonteBarra" type="button">Avvia Ponte PC</button>
+        <button class="btn piccolo primario" id="btnCartella">Collega cartella Excel</button>
+      </span>
     </div>
     <div class="avviso" id="avvisoArchivio" hidden>
       <span id="avvisoArchivioTesto"></span>
@@ -410,6 +422,43 @@
           <p class="aiuto">Nell'app restano gli ultimi 5 mesi, compreso quello in corso. I mesi più vecchi si possono cancellare dal database, ma solo se tutti i rapportini sono nell'archivio.</p>
           <button class="btn" id="btnControllaVecchi">Controlla i mesi da cancellare</button>
           <div id="mesiVecchi" class="elenco"></div>
+        </div>
+
+        <h2>Ponte PC (alternativa a Chrome)</h2>
+        <div class="scheda">
+          <p>Piccolo strumento per Windows da mettere sui PC dei responsabili: legge e scrive i file Excel e l'archivio senza passare dai permessi cartella di Chrome. Se è spento, l'app continua a funzionare normalmente con Chrome.</p>
+          <p id="infoPonte" class="aiuto"></p>
+          <div class="azioni">
+            <button class="btn primario" id="btnScaricaPonte" type="button">Scarica Ponte PC (.zip)</button>
+            <button class="btn" id="btnControllaPonte" type="button">Ricontrolla stato</button>
+          </div>
+          <details class="guida-utente" id="guidaPonte">
+            <summary>Guida completa: come installare, usare, accendere e spegnere il Ponte PC</summary>
+            <div class="guida-corpo">
+              <p><b>A cosa serve:</b> il Ponte PC è un piccolo programma di Windows che sostituisce il collegamento cartella di Chrome. Così anche se un aggiornamento di Chrome dà problemi con i permessi delle cartelle, continui a convalidare e scrivere su Excel senza blocchi. Se il Ponte è spento, l'app torna da sola al metodo normale di Chrome.</p>
+              <p><b>1. Prima installazione su un PC dell'ufficio (si fa una volta sola per PC):</b></p>
+              <ol>
+                <li>Premi <b>Scarica Ponte PC (.zip)</b> qui sopra (puoi poi copiare lo zip sui PC dei responsabili anche con chiavetta o cartella di rete: il Ponte non è legato al tuo account e funziona con qualsiasi responsabile).</li>
+                <li>Apri lo zip e clicca <b>Estrai tutto</b> per tirare fuori la cartella <b>Ponte_Rapportino</b> (es. in Documenti o sul Desktop). <i>Non avviare i file da dentro lo zip compresso.</i></li>
+                <li>Entra nella cartella estratta e fai doppio clic su <b>Scegli_Cartelle_Ponte.bat</b>. Se Windows mostra un avviso blu la prima volta, clicca <b>Ulteriori informazioni → Esegui comunque</b>.</li>
+                <li>Scegli la cartella dei file Excel (anche su NAS/rete, usando <b>Sfoglia…</b> o incollando il percorso) e la cartella dell'Archivio rapportini.</li>
+                <li>Sui PC dell'ufficio metti la spunta su <b>Avvia automaticamente il Ponte all'accensione del PC (ridotto a icona)</b> e premi <b>Salva</b>.</li>
+                <li>Fai doppio clic su <b>Avvia_Ponte_Rapportino.bat</b> (oppure clicca <b>Avvia Ponte PC</b> nella barra gialla dell'app). In alto comparirà la barra verde <b>✓ Ponte PC attivo</b> e le barre gialle spariranno.</li>
+              </ol>
+              <p><b>2. Uso di tutti i giorni (accendere, spegnere, cambiare cartelle):</b></p>
+              <ul>
+                <li><b>Resta sempre aperto:</b> anche se chiudi e riapri Chrome o l'app, il Ponte resta acceso ridotto a icona nella barra in basso di Windows. Con la spunta di avvio automatico si riapre da solo anche dopo il riavvio del PC.</li>
+                <li><b>Se è spento:</b> nella barra gialla dell'app compare il tasto <b>Avvia Ponte PC</b> per riaccenderlo al volo (la prima volta Chrome chiede conferma: spunta <i>Consenti sempre</i> e premi <i>Apri</i>).</li>
+                <li><b>Per spegnerlo:</b> apri la sua finestrina dalla barra in basso e chiudila con la <b>X</b>. L'app torna subito al collegamento normale di Chrome.</li>
+                <li><b>Per cambiare cartelle o togliere l'avvio automatico:</b> rilancia <b>Scegli_Cartelle_Ponte.bat</b>, modifica e premi <b>Salva</b> (il Ponte si aggiorna subito anche senza riavviarlo).</li>
+              </ul>
+              <p><b>3. Convalida dal telefono o da casa + scrittura in ufficio:</b></p>
+              <ul>
+                <li>Dal telefono (o da un PC senza cartella Excel collegata) puoi comunque premere <b>Convalida</b>: il rapportino passa nei <i>Convalidati</i> con il segno <b>⏳ Da scrivere in Excel</b>.</li>
+                <li>Quando apri l'app sul PC dell'ufficio (con il Ponte attivo o con Chrome), compare in alto la barra con il tasto <b>Scrivi tutti su Excel</b>: con un solo clic scrive tutti i rapportini in attesa nei file Excel giusti, fa il backup e salva le copie nell'archivio.</li>
+              </ul>
+            </div>
+          </details>
         </div>
 
         <h2>Promemoria</h2>

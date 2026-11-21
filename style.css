@@ -166,6 +166,9 @@ input[readonly] { background: var(--evidenza); }
 .conta.zero { opacity: .5; }
 
 .avviso { background: var(--attenzione-sfondo); padding: 10px 16px; display: flex; flex-wrap: wrap; gap: 10px; align-items: center; justify-content: space-between; }
+.avviso-azioni { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.avviso.ponte-ok { background: var(--ok-sfondo); color: var(--ok); }
+.avviso.da-scrivere { background: var(--evidenza); color: var(--testo); border-bottom: 1px solid var(--bordo); }
 .contenuto { max-width: 1100px; margin: 0 auto; padding: 16px; padding-bottom: 10px; }
 
 /* ---------- foglio (modulo) ---------- */
